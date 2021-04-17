@@ -1,0 +1,14 @@
+# files
+*.pdf
+Reconstruction_Parameters_*
+*.zip
+read_lm/lut/block_sino_f0_scatters*
+read_lm/lut/roi_mask_256x256x830.img
+
+# folders 
+dir_temp/
+motion_detect_server/
+nema/
+reconstruction/correction_sino/*
+read_lm/lut/block_sino_f0_scatters*
+reconstruction/normalization/20200101/
