@@ -5,6 +5,7 @@
 #include <math.h> // deprecated - try <cmath> later
 
 #include "../../include/coinc.h"
+#include "../../include/Subsample.h"
 
 #define PI 3.141592653589793
 #define BUFFER_SIZE 65536
@@ -591,6 +592,8 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
+	Subsample SUBS(infile_fullpath);	// included 04-19-2021, rbayerlein
+
 	// crystal index - sinogram bin LUTs
 	vector<int> index_crystalpairs_transaxial_int16_1(num_bins_sino);
 	vector<int> index_crystalpairs_transaxial_int16_2(num_bins_sino);
@@ -935,6 +938,7 @@ int main(int argc, char **argv) {
 	cout << "*** Getting initial count rates ***" << endl;
 
 	bool found_initial_count_rate = false;
+	bool keep_event = true;
 	while (!found_initial_count_rate) { // stop when initial count rate found
 		unsigned long long read_count = fread(pRawBuffer, sizeof(uint64_t),
 		BUFFER_SIZE, pInputFile); // returns BUFFER_SIZE events read unless EOF
@@ -1111,6 +1115,14 @@ int main(int argc, char **argv) {
 
 				axA = floor(crys1 / 70) + (unitA * 84);
 				axB = floor(crys2 / 70) + (unitB * 84);
+
+				keep_event = SUBS.KeepEvent(axA, axB, transA, transB);
+				if (!keep_event){
+				//	cout << "coincidences A,B (trans/ax):\t(" << transA << "/" << axA << "),\t(" << transB << "/" << axB << ")" << endl;
+				//	cout << "keep event " << num_coinc << " (1=yes):\t" << keep_event << endl;
+					num_coinc -= 1.0;
+					continue;
+				}
 
 				blkXa = floor(transA / 7);
 				blkXb = floor(transB / 7);
@@ -1439,6 +1451,13 @@ int main(int argc, char **argv) {
 				axA = floor(crys1 / 70) + (unitA * 84);
 				axB = floor(crys2 / 70) + (unitB * 84);
 
+				keep_event = SUBS.KeepEvent(axA, axB, transA, transB);
+				if (!keep_event){
+				//	cout << "coincidences A,B (trans/ax):\t(" << transA << "/" << axA << "),\t(" << transB << "/" << axB << ")" << endl;
+				//	cout << "keep event " << num_coinc << " (1=yes):\t" << keep_event << endl;
+					num_coinc -= 1.0;
+					continue;
+				}	
 				
 				blkXa = floor(transA / 7);
 				blkXb = floor(transB / 7);

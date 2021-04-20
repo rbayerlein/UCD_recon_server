@@ -2,6 +2,9 @@
 *.pdf
 Reconstruction_Parameters_*
 *.zip
+*.o
+
+read_lm/process_lm_sino_explorer_singlefile_release
 read_lm/lut/block_sino_f0_scatters*
 read_lm/lut/roi_mask_256x256x830.img
 
