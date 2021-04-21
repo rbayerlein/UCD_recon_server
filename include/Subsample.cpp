@@ -58,22 +58,24 @@ void Subsample::read_crys_eff(){
 
 	int gaps_skipped = 0;
 	int rows_counter = 0;
-	int trans_crys_counter = 0;
+	int column_counter=0;
 /// loop through all entries in the BUFFER and skip the 7 inter-unit gaps. Write into array crys_eff_672x840[].
 	for (int i = 0; i < BUFFER_size - NUM_dummy_crystals; ++i)
 	{
-		trans_crys_counter++;
-		if (trans_crys_counter > 840) {
-			rows_counter ++;
-			trans_crys_counter=1;
-		}
+		rows_counter++;
 		if(rows_counter == 85){		// to skip the crystal ring which corresponds to the inter-unit gap 
 			gaps_skipped++;	
-			cout << "skipping gap number " << gaps_skipped << endl;
-			rows_counter=0;
+			rows_counter=1;
 		}
-		crys_eff_672x840[i] = BUFFER[i+gaps_skipped*num_trans_crys_ring];
+		if(i>1 && (i % 672 == 0)){
+			
+			rows_counter=1;
+			gaps_skipped--;
+			column_counter++;
+		}
+		crys_eff_672x840[i] = BUFFER[i+gaps_skipped];
 	}
+
 	fclose(fInput);
 	cout << "...done" << endl;
 }
@@ -83,8 +85,8 @@ void Subsample::read_crys_eff(){
 	bool Subsample::KeepEvent(int axA, int axB, int transA, int transB) // Takes the axial and transaxial coordinates of the two coincident crystals as input.
 	{ 
 		int linearCrysIndex_A, linearCrysIndex_B;
-		linearCrysIndex_A = axA*num_ax_crys_mod + transA;
-		linearCrysIndex_B = axB*num_trans_crys_ring + transB;
+		linearCrysIndex_A = num_ax_crys_mod * num_units * (transA - 1) + axA;
+		linearCrysIndex_B = num_ax_crys_mod * num_units * (transB - 1) + axB;
 	//	if(crys_eff_672x840[linearCrysIndex_A] == 0 || crys_eff_672x840[linearCrysIndex_B] == 0) return false;
 		
 //	ALTERNATIVE: for later, when the crystal efficiency is set to a very high value instead of zero
