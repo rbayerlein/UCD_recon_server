@@ -16,4 +16,4 @@ $(inc)/Subsample.o : $(inc)/Subsample.cpp $(inc)/Subsample.h
 .PHONY : clean
 
 clean :
-	-rm -v $(bin) main.o $(inc)/coinc.o
+	-rm -v $(bin) main.o $(inc)/coinc.o $(inc)/Subsample.o
