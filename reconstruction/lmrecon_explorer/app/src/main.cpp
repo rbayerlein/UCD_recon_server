@@ -141,6 +141,9 @@ int main(int argc, char **argv) {
 	vector<double> p_prob(8, 0); // 8 files
 	for (auto i = 0; i < 8; i++) { // 8 files
 		p_prob.at(i) = (double) num_events_p.at(i) / (double) max_events_file;
+		if ( p_prob.at(i) == 0) {
+			p_prob.at(i) = 0.01;		// empty files still need to be prrocessed, so probability cannot be zero!
+		}
 	}
 
 	// **************		Main Run Program		***************************

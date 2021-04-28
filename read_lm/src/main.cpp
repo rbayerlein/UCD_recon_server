@@ -1116,14 +1116,15 @@ int main(int argc, char **argv) {
 				axA = floor(crys1 / 70) + (unitA * 84);
 				axB = floor(crys2 / 70) + (unitB * 84);
 
-				keep_event = SUBS.KeepEvent(axA, axB, transA, transB);
+/*				keep_event = SUBS.KeepEvent(axA, axB, transA, transB);
 				if (!keep_event){
 				//	cout << "coincidences A,B (trans/ax):\t(" << transA << "/" << axA << "),\t(" << transB << "/" << axB << ")" << endl;
 				//	cout << "keep event " << num_coinc << " (1=yes):\t" << keep_event << endl;
+					byte_location += 8; // move to next event (8 bytes)
 					num_coinc -= 1.0;
 					continue;
 				}
-
+*/
 				blkXa = floor(transA / 7);
 				blkXb = floor(transB / 7);
 				blkYa = floor(axA / 6);
@@ -1450,15 +1451,16 @@ int main(int argc, char **argv) {
 
 				axA = floor(crys1 / 70) + (unitA * 84);
 				axB = floor(crys2 / 70) + (unitB * 84);
-
+/*
 				keep_event = SUBS.KeepEvent(axA, axB, transA, transB);
 				if (!keep_event){
 				//	cout << "coincidences A,B (trans/ax):\t(" << transA << "/" << axA << "),\t(" << transB << "/" << axB << ")" << endl;
 				//	cout << "keep event " << num_coinc << " (1=yes):\t" << keep_event << endl;
+					byte_location += 8; // move to next event (8 bytes)
 					num_coinc -= 1.0;
 					continue;
 				}	
-				
+*/				
 				blkXa = floor(transA / 7);
 				blkXb = floor(transB / 7);
 				blkYa = floor(axA / 6);
@@ -1523,7 +1525,7 @@ int main(int argc, char **argv) {
 						+ (num_bins_sino_module * 8 * unitB);
 				ind_module2 = ind_module_trans + (num_bins_sino_module * unitB)
 						+ (num_bins_sino_module * 8 * unitA);
-				if (ind_module_trans >= 0) {
+				if (ind_module_trans >= 0 && SUBS.KeepEvent(axA, axB, transA, transB)) {
 					if (COINC::IsDelayFlag(pRawBuffer[i])) {
 						random_rate_new[modA + 24 * unitA] =
 								random_rate_new[modA + 24 * unitA] + 1.0;
@@ -1549,7 +1551,7 @@ int main(int argc, char **argv) {
 					}
 				}
 
-				if (ind_block_trans >=0) { 
+				if (ind_block_trans >=0 && SUBS.KeepEvent(axA, axB, transA, transB)) { 
 					if (COINC::IsDelayFlag(pRawBuffer[i])) {
                                                sino_block_r[ind_block1] = sino_block_r[ind_block1] + 1.0; 
 //                                               sino_block_r[ind_block2] = sino_block_r[ind_block2] + 1.0; 
@@ -1559,7 +1561,7 @@ int main(int argc, char **argv) {
 					}
 				}
 				
-				if (ind >= 0) {
+				if (ind >= 0 && SUBS.KeepEvent(axA, axB, transA, transB)) {
 					if (!COINC::IsDelayFlag(pRawBuffer[i])) { // prompt event
 						if ((ind_block > 0)
 								&& (abs(blkYa - blkYb) <= block_ax_span)) {
