@@ -363,6 +363,11 @@ int main(int argc, char **argv) {
 	double singles_bkg = 36000.0;
 	double DT_fac[192][192] = { 1.0 };
 
+	// decay correction
+	double DF_eff, DF = 1.0;
+	int time_elapsed = 1.0;
+	double decay_time_constant = 109.77120*60;	//F-18, in seconds, source: https://en.wikipedia.org/wiki/Fluorine-18, rbayerlein, 05/24/2021
+
 	// dynamic 
 	int frame_start = 0.0;
 	int frame_end = 0.0;
@@ -542,6 +547,7 @@ int main(int argc, char **argv) {
 	scatter_sino_read.open(scatter_sino_path.c_str(),  ios::in | ios::binary); 
 	if (!scatter_sino_read) {
 		cout << "could not open scatter sino" <<  endl;
+		cout << scatter_sino_path << endl;
 		return 1; 
 	}
 	vector<double> scatter_sino(num_bins_sino_block * num_block_ring * num_block_ring);
@@ -591,8 +597,6 @@ int main(int argc, char **argv) {
 		cout << "Bank LUT incorrect!" << endl;
 		return 1;
 	}
-
-	Subsample SUBS(infile_fullpath);	// included 04-19-2021, rbayerlein
 
 	// crystal index - sinogram bin LUTs
 	vector<int> index_crystalpairs_transaxial_int16_1(num_bins_sino);
@@ -924,6 +928,11 @@ int main(int argc, char **argv) {
 			<< hour00 << ":" << minute00 << ":" << second00 << "." << milli00
 			<< endl;
 
+// invoke sub sampling tool and pass first time stamp
+	int firstTimeStamp = hour00*60*60+minute00*60+second00;		// included 05-24-2021, rbayerlein
+	Subsample SUBS(infile_fullpath, firstTimeStamp);			
+
+
 	// ========================= get initial count rates =========================
 
 	ss0 = milli00; // temporary assignment of start time
@@ -1116,7 +1125,7 @@ int main(int argc, char **argv) {
 				axA = floor(crys1 / 70) + (unitA * 84);
 				axB = floor(crys2 / 70) + (unitB * 84);
 
-/*				keep_event = SUBS.KeepEvent(axA, axB, transA, transB);
+/*				keep_event = SUBS.KeepEvent(axA, axB, transA, transB, hour1*60*60+minute1*60+second1);
 				if (!keep_event){
 				//	cout << "coincidences A,B (trans/ax):\t(" << transA << "/" << axA << "),\t(" << transB << "/" << axB << ")" << endl;
 				//	cout << "keep event " << num_coinc << " (1=yes):\t" << keep_event << endl;
@@ -1452,7 +1461,7 @@ int main(int argc, char **argv) {
 				axA = floor(crys1 / 70) + (unitA * 84);
 				axB = floor(crys2 / 70) + (unitB * 84);
 /*
-				keep_event = SUBS.KeepEvent(axA, axB, transA, transB);
+				keep_event = SUBS.KeepEvent(axA, axB, transA, transB, hour1*60*60+minute1*60+second1);
 				if (!keep_event){
 				//	cout << "coincidences A,B (trans/ax):\t(" << transA << "/" << axA << "),\t(" << transB << "/" << axB << ")" << endl;
 				//	cout << "keep event " << num_coinc << " (1=yes):\t" << keep_event << endl;
@@ -1525,7 +1534,10 @@ int main(int argc, char **argv) {
 						+ (num_bins_sino_module * 8 * unitB);
 				ind_module2 = ind_module_trans + (num_bins_sino_module * unitB)
 						+ (num_bins_sino_module * 8 * unitA);
-				if (ind_module_trans >= 0 && SUBS.KeepEvent(axA, axB, transA, transB)) {
+
+				keep_event = SUBS.KeepEvent(axA, axB, transA, transB, hour1*60*60+minute1*60+second1); // evaluate whether to keep event
+				
+				if (ind_module_trans >= 0 && keep_event) {
 					if (COINC::IsDelayFlag(pRawBuffer[i])) {
 						random_rate_new[modA + 24 * unitA] =
 								random_rate_new[modA + 24 * unitA] + 1.0;
@@ -1551,7 +1563,7 @@ int main(int argc, char **argv) {
 					}
 				}
 
-				if (ind_block_trans >=0 && SUBS.KeepEvent(axA, axB, transA, transB)) { 
+				if (ind_block_trans >=0 && keep_event) { 
 					if (COINC::IsDelayFlag(pRawBuffer[i])) {
                                                sino_block_r[ind_block1] = sino_block_r[ind_block1] + 1.0; 
 //                                               sino_block_r[ind_block2] = sino_block_r[ind_block2] + 1.0; 
@@ -1561,7 +1573,7 @@ int main(int argc, char **argv) {
 					}
 				}
 				
-				if (ind >= 0 && SUBS.KeepEvent(axA, axB, transA, transB)) {
+				if (ind >= 0 && keep_event) {
 					if (!COINC::IsDelayFlag(pRawBuffer[i])) { // prompt event
 						if ((ind_block > 0)
 								&& (abs(blkYa - blkYb) <= block_ax_span)) {
@@ -1583,7 +1595,12 @@ int main(int argc, char **argv) {
 							mtemp = 1.0;
 							mtemp = (float) DT_fac[modA + 24 * unitA][modB
 									+ 24 * unitB];
-							
+
+							// add decay correction, 05/24/2021, rbayerlein
+							time_elapsed = hour1*60*60+minute1*60+second1 - firstTimeStamp;
+							DF_eff = pow(0.5, (double)(time_elapsed/decay_time_constant));	// from S.Cherry, Physics in Nuclear Medicine, v.4, p.36
+							DF = 1/DF_eff;
+							mtemp = mtemp * DF;
 
 							if (r_singles) {
 								singles_c1 = block_rate[blk_absA] / 42.0;
@@ -1626,7 +1643,7 @@ int main(int argc, char **argv) {
 								//}
 								//stemp = stemp * nc_crys[crysaxA + 672*transcA] * nc_crys[crysaxB + 672*transcB]; 
 //								rtemp =  rtemp + stemp; 
-								rtemp = rtemp * mtemp;
+								//rtemp = rtemp * mtemp;	//commented this line out according to an email from eberg on June 2nd, 21
 
 								//rtemp = rtemp * (nc_crys[crys1] / nc_mod[modA]) * (nc_crys[crys2] / nc_mod[modB]);
 
