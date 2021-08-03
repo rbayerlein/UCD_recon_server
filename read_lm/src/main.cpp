@@ -947,6 +947,7 @@ int main(int argc, char **argv) {
 	cout << "*** Getting initial count rates ***" << endl;
 
 	bool found_initial_count_rate = false;
+	bool use_spatial_subsampling = true;	//added 07/20/21 rbayerlein, use this to switch sub sampling tool on or off
 	bool keep_event = true;
 	while (!found_initial_count_rate) { // stop when initial count rate found
 		unsigned long long read_count = fread(pRawBuffer, sizeof(uint64_t),
@@ -1125,15 +1126,6 @@ int main(int argc, char **argv) {
 				axA = floor(crys1 / 70) + (unitA * 84);
 				axB = floor(crys2 / 70) + (unitB * 84);
 
-/*				keep_event = SUBS.KeepEvent(axA, axB, transA, transB, hour1*60*60+minute1*60+second1);
-				if (!keep_event){
-				//	cout << "coincidences A,B (trans/ax):\t(" << transA << "/" << axA << "),\t(" << transB << "/" << axB << ")" << endl;
-				//	cout << "keep event " << num_coinc << " (1=yes):\t" << keep_event << endl;
-					byte_location += 8; // move to next event (8 bytes)
-					num_coinc -= 1.0;
-					continue;
-				}
-*/
 				blkXa = floor(transA / 7);
 				blkXb = floor(transB / 7);
 				blkYa = floor(axA / 6);
@@ -1460,16 +1452,7 @@ int main(int argc, char **argv) {
 
 				axA = floor(crys1 / 70) + (unitA * 84);
 				axB = floor(crys2 / 70) + (unitB * 84);
-/*
-				keep_event = SUBS.KeepEvent(axA, axB, transA, transB, hour1*60*60+minute1*60+second1);
-				if (!keep_event){
-				//	cout << "coincidences A,B (trans/ax):\t(" << transA << "/" << axA << "),\t(" << transB << "/" << axB << ")" << endl;
-				//	cout << "keep event " << num_coinc << " (1=yes):\t" << keep_event << endl;
-					byte_location += 8; // move to next event (8 bytes)
-					num_coinc -= 1.0;
-					continue;
-				}	
-*/				
+		
 				blkXa = floor(transA / 7);
 				blkXb = floor(transB / 7);
 				blkYa = floor(axA / 6);
@@ -1536,7 +1519,8 @@ int main(int argc, char **argv) {
 						+ (num_bins_sino_module * 8 * unitA);
 
 				keep_event = SUBS.KeepEvent(axA, axB, transA, transB, hour1*60*60+minute1*60+second1); // evaluate whether to keep event
-				
+				if (!use_spatial_subsampling) keep_event = true; // keep all events in case spatial subsampling is off
+
 				if (ind_module_trans >= 0 && keep_event) {
 					if (COINC::IsDelayFlag(pRawBuffer[i])) {
 						random_rate_new[modA + 24 * unitA] =

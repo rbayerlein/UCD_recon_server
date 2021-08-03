@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <ctime>
 
 using namespace std;
 
@@ -43,8 +44,8 @@ private:
 	int num_trans_crys_ring=840;									/*!< Number of crystals per transaxial ring (there is no axial ring, of course)*/
 	int num_units=8;												/*!< Number of units (and modules) in axial direction*/
 
-	std::string output_DEBUG;
-	ofstream o_DEBUG;
+	std::string output_LOG;
+	ofstream o_LOG;
 
 	std::vector<int> bed_time_start;								/*!< start time for each bed position; included in current interval*/
 	std::vector<int> bed_time_end;									/*!< end time; excluded from current interval */
