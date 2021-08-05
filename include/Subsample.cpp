@@ -14,6 +14,7 @@ Subsample::Subsample(std::string s, int t) /*!< Takes the full path to the .raw 
 	: input_raw_fullpath(s)
 	, firstTimeStamp(t)
 {
+	createLogFile = false;
 	Initialize();
 
 }
@@ -36,18 +37,21 @@ void Subsample::Initialize(){
 	ss << input_config_TEMP << "UCD/multi_bed_recon.config" ;
 	input_config = ss.str();
 
-	/// get system time to create timestamp for log file name
-	std::time_t t = std::time(0);   	// get time now
-    std::tm* now = std::localtime(&t);
+	if (createLogFile)
+	{
+		/// get system time to create timestamp for log file name
+		std::time_t t = std::time(0);   	// get time now
+	    std::tm* now = std::localtime(&t);
 
-	/// set logfile out path
-	stringstream ss_log;
-	ss_log << input_config_TEMP << "UCD/subsample_" << now->tm_year+1900 << "-" << now->tm_mon + 1 
-		<< "-" << now->tm_mday << "_" << now->tm_hour << ":" << now->tm_min << ".log" ;
-	output_LOG = ss_log.str();
-	o_LOG.open(output_LOG.c_str(), std::ios_base::app);
+		/// set logfile out path
+		stringstream ss_log;
+		ss_log << input_config_TEMP << "UCD/subsample_" << now->tm_year+1900 << "-" << now->tm_mon + 1 
+			<< "-" << now->tm_mday << "_" << now->tm_hour << ":" << now->tm_min << ".log" ;
+		output_LOG = ss_log.str();
+		o_LOG.open(output_LOG.c_str(), std::ios_base::app);
 
-	o_LOG << input_raw_fullpath << endl;
+		o_LOG << input_raw_fullpath << endl;
+	}
 
 	cout << "====================================\nreading multi bed config file \n" << input_config << endl;
 
@@ -96,13 +100,6 @@ void Subsample::Initialize(){
 	<< "\ntime per bed\t\t\t\t" << time_per_bed
 	<< "\n===================================="<< endl;
 
-	o_LOG << "number of scans per bed position:\t" << num_cycles 
-	<< "\nstart ring\t\t\t\t" << start_ring 
-	<< "\nnumber of rings per bed position\t" << rings_per_bed
-	<< "\nnumber of bed positions\t\t\t" << num_beds
-	<< "\noverlap of bed positions\t\t" << bed_overlap 
-	<< "\ntime per bed\t\t\t\t" << time_per_bed
-	<< "\n===================================="<< endl;
 
 	for (int cycle = 0; cycle < num_cycles; ++cycle)
 	{
@@ -123,17 +120,35 @@ void Subsample::Initialize(){
 		<< ". start ring: " << bed_ring_start.at(i)
 		<< ". end ring: " << bed_ring_end.at(i)
 		<< endl;
-		o_LOG << "start time " << i << ": " << bed_time_start.at(i) 
-		<< ". end time: " << bed_time_end.at(i)
-		<< ". start ring: " << bed_ring_start.at(i)
-		<< ". end ring: " << bed_ring_end.at(i)
-		<< endl;
+
 	}
 
 	cout << "first time stamp set: \t" << firstTimeStamp << "sec = " << (int)firstTimeStamp/3600 << "h:" << ((int)firstTimeStamp%3600)/60 << "min:" << ((int)firstTimeStamp%3600)%60 << "s" << endl;
-	o_LOG << "first time stamp set: \t" << firstTimeStamp << "sec = " << (int)firstTimeStamp/3600 << "h:" << ((int)firstTimeStamp%3600)/60 << "min:" << ((int)firstTimeStamp%3600)%60 << "s" << endl;
 
-	o_LOG.close();
+
+// fill log file if desired
+	if (createLogFile)
+	{
+		o_LOG << "number of scans per bed position:\t" << num_cycles 
+		<< "\nstart ring\t\t\t\t" << start_ring 
+		<< "\nnumber of rings per bed position\t" << rings_per_bed
+		<< "\nnumber of bed positions\t\t\t" << num_beds
+		<< "\noverlap of bed positions\t\t" << bed_overlap 
+		<< "\ntime per bed\t\t\t\t" << time_per_bed
+		<< "\n===================================="<< endl;
+
+		for (int i = 0; i < bed_time_start.size(); ++i)
+		{
+			o_LOG << "start time " << i << ": " << bed_time_start.at(i) 
+			<< ". end time: " << bed_time_end.at(i)
+			<< ". start ring: " << bed_ring_start.at(i)
+			<< ". end ring: " << bed_ring_end.at(i)
+			<< endl;
+		}
+
+		o_LOG << "first time stamp set: \t" << firstTimeStamp << "sec = " << (int)firstTimeStamp/3600 << "h:" << ((int)firstTimeStamp%3600)/60 << "min:" << ((int)firstTimeStamp%3600)%60 << "s" << endl;
+		o_LOG.close();
+	}	
 }
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......

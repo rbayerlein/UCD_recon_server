@@ -44,6 +44,7 @@ private:
 	int num_trans_crys_ring=840;									/*!< Number of crystals per transaxial ring (there is no axial ring, of course)*/
 	int num_units=8;												/*!< Number of units (and modules) in axial direction*/
 
+	bool createLogFile;
 	std::string output_LOG;
 	ofstream o_LOG;
 
