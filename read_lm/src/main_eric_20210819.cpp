@@ -5,7 +5,6 @@
 #include <math.h> // deprecated - try <cmath> later
 
 #include "../../include/coinc.h"
-#include "../../include/Subsample.h"
 
 #define PI 3.141592653589793
 #define BUFFER_SIZE 65536
@@ -239,7 +238,7 @@ int main(int argc, char **argv) {
 	int num_blocks = 120 * 8 * 14;
 	int num_mod = 24 * 8;
 
-	double tof_res = 450.0;
+	double tof_res = 505.0;
 
 	// for reading lm file	
 
@@ -363,11 +362,6 @@ int main(int argc, char **argv) {
 	double singles_bkg = 36000.0;
 	double DT_fac[192][192] = { 1.0 };
 
-	// decay correction
-	double DF_eff, DF = 1.0;
-	int time_elapsed = 1.0;
-	double decay_time_constant = 109.77120*60;	//F-18, in seconds, source: https://en.wikipedia.org/wiki/Fluorine-18, rbayerlein, 05/24/2021
-
 	// dynamic 
 	int frame_start = 0.0;
 	int frame_end = 0.0;
@@ -385,9 +379,6 @@ int main(int argc, char **argv) {
 	bool write_lm = false;
 	string runrecon_str = "";
 	string removeraws_str = "";
-
-	// spatial sub subsampling
-	bool use_spatial_subsampling = true;	//added 07/20/21 rbayerlein, use this to switch sub sampling tool on or off
 
 
 	///////////////////////////////////////////////////////////////////////////
@@ -494,12 +485,16 @@ int main(int argc, char **argv) {
 	// prompt, random module pair sinograms
 	string outfile_fullpath_pmod_sino = outfolder;
 	string outfile_fullpath_rmod_sino = outfolder;
+	string outfile_fullpath_dtmod_sino = outfolder;
 	outfile_fullpath_pmod_sino.append("prompts_sino.");
 	outfile_fullpath_pmod_sino.append(raw_num);
 	outfile_fullpath_rmod_sino.append("randoms_sino.");
 	outfile_fullpath_rmod_sino.append(raw_num);
+	outfile_fullpath_dtmod_sino.append("deadtime_sino.");
+	outfile_fullpath_dtmod_sino.append(raw_num);
 	outfile_fullpath_pmod_sino.append(".raw");
 	outfile_fullpath_rmod_sino.append(".raw");
+	outfile_fullpath_dtmod_sino.append(".raw"); 
 
 	ofstream outfile_pmod_sino;
 	outfile_pmod_sino.open(outfile_fullpath_pmod_sino.c_str(),
@@ -508,6 +503,10 @@ int main(int argc, char **argv) {
 	ofstream outfile_rmod_sino;
 	outfile_rmod_sino.open(outfile_fullpath_rmod_sino.c_str(),
 			ios::out | ios::binary);
+
+	ofstream outfile_dtmod_sino;
+	outfile_dtmod_sino.open(outfile_fullpath_dtmod_sino.c_str(),
+			 ios::out | ios::binary);
 
 	// ssrb sino names
 	string fname_sino;
@@ -519,10 +518,10 @@ int main(int argc, char **argv) {
 	string blocksino_fullpath_p;
 	string blocksino_fullpath_r;
 
-	stringstream bbss; 
-	bbss << "block_sino_f" << frame_num; 
-	fname_out = bbss.str(); 
-	
+	stringstream bbss;
+	bbss << "block_sino_f" << frame_num;
+	fname_out = bbss.str();
+
 	blocksino_fullpath_p = outfolder + fname_out + "_prompts." + raw_num + ".raw"; 
 	blocksino_fullpath_r = outfolder + fname_out + "_randoms." + raw_num + ".raw"; 
 
@@ -531,10 +530,10 @@ int main(int argc, char **argv) {
 
 	outfile_block_sino.open(blocksino_fullpath_p.c_str(), ios::out | ios::binary); 
 	outfile_block_sino_r.open(blocksino_fullpath_r.c_str(), ios::out | ios::binary); 
-	
-	fname_out = ""; 
-	bbss << ""; 
-	bbss.clear(); 
+
+	fname_out = "";
+	bbss << "";
+	bbss.clear();
 
 	string fname_histo_img;
 	string histo_img_fullpath;
@@ -542,15 +541,15 @@ int main(int argc, char **argv) {
 	string frameinfo_fullpath;
 
 	// ************		Load LUTs  ****************//
-	string fdir_code = "/home/rbayerlein/code/explorer-master/read_lm/lut/";
+	string fdir_code = "/home/eberg/code/explorer-master/read_lm/lut/";
 
+	/*
 	string scatter_sino_path = fdir_code;  
-	scatter_sino_path.append("block_sino_f0_scatters.sino4d"); 
+	scatter_sino_path.append("f00000_scatters_scaled_big_it2.sino4d"); 
 	ifstream scatter_sino_read; 
 	scatter_sino_read.open(scatter_sino_path.c_str(),  ios::in | ios::binary); 
 	if (!scatter_sino_read) {
 		cout << "could not open scatter sino" <<  endl;
-		cout << scatter_sino_path << endl;
 		return 1; 
 	}
 	vector<double> scatter_sino(num_bins_sino_block * num_block_ring * num_block_ring);
@@ -559,8 +558,8 @@ int main(int argc, char **argv) {
 	}
 	scatter_sino_read.close();
 
-        string tof_wt_path = fdir_code;  
-	tof_wt_path.append("tof_wt"); 
+    string tof_wt_path = fdir_code;  
+	tof_wt_path.append("tof_wt_bigsc"); 
 	ifstream tof_wt_read; 
 	tof_wt_read.open(tof_wt_path.c_str(), ios::in | ios::binary);
 	if (!tof_wt_read) {
@@ -572,6 +571,8 @@ int main(int argc, char **argv) {
 		tof_wt_read.read(reinterpret_cast<char*>(&tof_wt[ti]), sizeof(float)); 
 	}
 	tof_wt_read.close();  
+	vector<double> tof_spectrum(129); 
+	*/
 
 	// open bank lut
 	int lutsum = 0;
@@ -931,11 +932,6 @@ int main(int argc, char **argv) {
 			<< hour00 << ":" << minute00 << ":" << second00 << "." << milli00
 			<< endl;
 
-// invoke sub sampling tool and pass first time stamp
-	int firstTimeStamp = hour00*60*60+minute00*60+second00;		// included 05-24-2021, rbayerlein
-	Subsample SUBS(infile_fullpath, firstTimeStamp);			
-
-
 	// ========================= get initial count rates =========================
 
 	ss0 = milli00; // temporary assignment of start time
@@ -950,7 +946,6 @@ int main(int argc, char **argv) {
 	cout << "*** Getting initial count rates ***" << endl;
 
 	bool found_initial_count_rate = false;
-	bool keep_event = true;
 	while (!found_initial_count_rate) { // stop when initial count rate found
 		unsigned long long read_count = fread(pRawBuffer, sizeof(uint64_t),
 		BUFFER_SIZE, pInputFile); // returns BUFFER_SIZE events read unless EOF
@@ -1151,10 +1146,7 @@ int main(int argc, char **argv) {
 				ind_module2 = ind_module_trans + (num_bins_sino_module * unitB)
 						+ (num_bins_sino_module * 8 * unitA);
 
-				keep_event = SUBS.KeepEvent(axA, axB, transA, transB, hour1*60*60+minute1*60+second1); // evaluate whether to keep event
-				if (!use_spatial_subsampling) keep_event = true; // keep all events in case spatial subsampling is off
-
-				if (ind_module_trans >= 0 && keep_event) {
+				if (ind_module_trans >= 0) {
 					if (COINC::IsDelayFlag(pRawBuffer[i])) { // bin to delay related stuff
 						random_rate_new[modA + 24 * unitA] += 1.0;
 						random_rate_new[modB + 24 * unitB] += 1.0;
@@ -1282,11 +1274,19 @@ int main(int argc, char **argv) {
 						outfile_rmod_sino.write(
 								reinterpret_cast<const char*>(&time_sd),
 								sizeof(double));
+						outfile_dtmod_sino.write(
+								reinterpret_cast<const char*>(&time_sd),
+								sizeof(double));
 						outfile_pmod_sino.write((char*) sino_module_avg.data(),
 								sino_module_avg.size() * sizeof(double));
 						outfile_rmod_sino.write(
 								(char*) sino_module_r_avg.data(),
 								sino_module_r_avg.size() * sizeof(double));
+						for (int temp_dt1 = 0; temp_dt1 < 192; temp_dt1++) {
+							for (int temp_dt2 = 0; temp_dt2 < 192; temp_dt2++) {
+								outfile_dtmod_sino.write(reinterpret_cast<const char*>(&DT_fac[temp_dt1][temp_dt2]), sizeof(double));
+							}
+						}
 					}
 					// add assorted data
 					for (int rk = 0; rk < num_bins_sino_module * 8 * 8; rk++) {
@@ -1457,7 +1457,8 @@ int main(int argc, char **argv) {
 
 				axA = floor(crys1 / 70) + (unitA * 84);
 				axB = floor(crys2 / 70) + (unitB * 84);
-		
+
+				
 				blkXa = floor(transA / 7);
 				blkXb = floor(transB / 7);
 				blkYa = floor(axA / 6);
@@ -1522,14 +1523,7 @@ int main(int argc, char **argv) {
 						+ (num_bins_sino_module * 8 * unitB);
 				ind_module2 = ind_module_trans + (num_bins_sino_module * unitB)
 						+ (num_bins_sino_module * 8 * unitA);
-
-				if (!use_spatial_subsampling){
-					keep_event = true; // keep all events in case spatial subsampling is off
-				}else{
-					keep_event = SUBS.KeepEvent(axA, axB, transA, transB, hour1*60*60+minute1*60+second1); // evaluate whether to keep event
-				}
-
-				if (ind_module_trans >= 0 && keep_event) {
+				if (ind_module_trans >= 0) {
 					if (COINC::IsDelayFlag(pRawBuffer[i])) {
 						random_rate_new[modA + 24 * unitA] =
 								random_rate_new[modA + 24 * unitA] + 1.0;
@@ -1555,7 +1549,7 @@ int main(int argc, char **argv) {
 					}
 				}
 
-				if (ind_block_trans >=0 && keep_event) { 
+				if (ind_block_trans >=0) { 
 					if (COINC::IsDelayFlag(pRawBuffer[i])) {
                                                sino_block_r[ind_block1] = sino_block_r[ind_block1] + 1.0; 
 //                                               sino_block_r[ind_block2] = sino_block_r[ind_block2] + 1.0; 
@@ -1565,13 +1559,17 @@ int main(int argc, char **argv) {
 					}
 				}
 				
-				if (ind >= 0 && keep_event) {
+				if (ind >= 0) {
 					if (!COINC::IsDelayFlag(pRawBuffer[i])) { // prompt event
 						if ((ind_block > 0)
 								&& (abs(blkYa - blkYb) <= block_ax_span)) {
 						//	sino_block[ind_block2]++;
 						}
 						if (write_lmfile) {
+							
+//							if (abs(dout[4] < 65)) {
+//								tof_spectrum[dout[4] + 64] = tof_spectrum[dout[4] + 64] + 1.0;
+//							}
 							pids_p[p_index].txID1 = dout[0];
 							pids_p[p_index].axID1 = dout[1];
 							pids_p[p_index].txID2 = dout[2];
@@ -1587,14 +1585,9 @@ int main(int argc, char **argv) {
 							mtemp = 1.0;
 							mtemp = (float) DT_fac[modA + 24 * unitA][modB
 									+ 24 * unitB];
+							
 
-							// add decay correction, 05/24/2021, rbayerlein
-							time_elapsed = hour1*60*60+minute1*60+second1 - firstTimeStamp;
-							DF_eff = pow(0.5, (double)(time_elapsed/decay_time_constant));	// from S.Cherry, Physics in Nuclear Medicine, v.4, p.36
-							DF = 1/DF_eff;
-							mtemp = mtemp * DF;
-
-							if (r_singles) { // false, 08/18/2021, rbayerlein
+							if (r_singles) {
 								singles_c1 = block_rate[blk_absA] / 42.0;
 								singles_c2 = block_rate[blk_absB] / 42.0;
 								rstemp = singles_c1 * singles_c2
@@ -1621,21 +1614,24 @@ int main(int argc, char **argv) {
 
 								rtemp = rtemp * (39.0625 / t_window);
 								
-								//stemp = (float)scatter_sino[ind_block1];
-                                                                //if (blkYa == blkYb) {
-								//	stemp =  stemp  /  (1.0  * (float) num_lor_blkpair);
-								//}   else {
-								//	stemp =  stemp  / ((float) num_lor_blkpair);  
-								//}
-								//if (abs(dout[4] < 64)) {
-					
-								//	stemp = stemp *tof_wt[dout[4]+64];
-								//} else {
-								//	stemp = 0.0; 
-								//}
+//								stemp = (float)scatter_sino[ind_block1];
+ //                               if (blkYa == blkYb) {
+//									stemp =  stemp  /  (1.0  * (float) num_lor_blkpair);
+//								}   else {
+//									stemp =  stemp  / ((float) num_lor_blkpair);  
+//								}
+//								if (abs(dout[4] < 64)) {
+//					
+//									stemp = stemp *tof_wt[dout[4]+64];
+//								} else {
+//									stemp = 0.0; 
+//								}
 								//stemp = stemp * nc_crys[crysaxA + 672*transcA] * nc_crys[crysaxB + 672*transcB]; 
-//								rtemp =  rtemp + stemp; 
-								//rtemp = rtemp * mtemp;	//commented this line out according to an email from eberg on June 2nd, 21
+//								rtemp =  rtemp + (8.0 * stemp / 1.0); 
+//								rtemp = rtemp * mtemp;
+								//rtemp = 0.0;
+								//rtemp = 0.0; 
+								mtemp = 1.0;  
 
 								//rtemp = rtemp * (nc_crys[crys1] / nc_mod[modA]) * (nc_crys[crys2] / nc_mod[modB]);
 
@@ -1852,6 +1848,20 @@ int main(int argc, char **argv) {
 	pPromptFile = fopen(outfile_fullpath_p.c_str(), "wb");
 	fwrite(&rtemp, sizeof(float), 1, pPromptFile); // dummy file for recon scheduler
 	fclose(pPromptFile);
+
+	outfile_dtmod_sino.close();
+
+//	string tspectrum_outfile = outfolder; 
+//	tspectrum_outfile.append("tspectrum.");
+//	tspectrum_outfile.append(raw_num); 
+//	tspectrum_outfile.append(".raw"); 
+	
+//	ofstream tspectrum_out; 
+//	tspectrum_out.open(tspectrum_outfile.c_str(), ios::out | ios::binary); 
+//	for (int ti = 0; ti < 129; ti++) {
+//		tspectrum_out.write(reinterpret_cast<const char*>(&tof_spectrum[ti]), sizeof(double)); 
+//	}
+//	tspectrum_out.close(); 
 
 	delete[] pRawBuffer;
 	delete[] pids_p;

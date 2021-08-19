@@ -14,7 +14,7 @@ Subsample::Subsample(std::string s, int t) /*!< Takes the full path to the .raw 
 	: input_raw_fullpath(s)
 	, firstTimeStamp(t)
 {
-	createLogFile = false;
+	createLogFile = true;
 	Initialize();
 
 }
