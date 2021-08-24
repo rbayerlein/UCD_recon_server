@@ -239,7 +239,7 @@ int main(int argc, char **argv) {
 	int num_blocks = 120 * 8 * 14;
 	int num_mod = 24 * 8;
 
-	double tof_res = 450.0;
+	double tof_res = 505.0;
 
 	// for reading lm file	
 
@@ -304,8 +304,8 @@ int main(int argc, char **argv) {
 	int nv, nu, nvtemp, nutemp, ntemp = 0;
 	int sino_ax_span = 10000;
 	int block_ax_span = 2;
-	int num_lor_modpair = 4323270;
-	int num_lor_blkpair = 903;
+	int num_lor_modpair = 4323270; //2940!/(2!*2938!) + 2940  // number of ways to choose two crystals from two modules, whereby (1,2) and (2,1) would not be counted separately
+	int num_lor_blkpair = 903;	//same here: number of pairs between 2 blocks, but (1,2) and (2,1) not counted separately
 	int michel_ind = 0;
 
 	vector<double> sino_block(num_bins_sino_block * num_block_ring * num_block_ring);
@@ -494,12 +494,16 @@ int main(int argc, char **argv) {
 	// prompt, random module pair sinograms
 	string outfile_fullpath_pmod_sino = outfolder;
 	string outfile_fullpath_rmod_sino = outfolder;
+	string outfile_fullpath_dtmod_sino = outfolder;
 	outfile_fullpath_pmod_sino.append("prompts_sino.");
 	outfile_fullpath_pmod_sino.append(raw_num);
 	outfile_fullpath_rmod_sino.append("randoms_sino.");
 	outfile_fullpath_rmod_sino.append(raw_num);
+	outfile_fullpath_dtmod_sino.append("deadtime_sino.");
+	outfile_fullpath_dtmod_sino.append(raw_num);
 	outfile_fullpath_pmod_sino.append(".raw");
 	outfile_fullpath_rmod_sino.append(".raw");
+	outfile_fullpath_dtmod_sino.append(".raw"); 
 
 	ofstream outfile_pmod_sino;
 	outfile_pmod_sino.open(outfile_fullpath_pmod_sino.c_str(),
@@ -508,6 +512,10 @@ int main(int argc, char **argv) {
 	ofstream outfile_rmod_sino;
 	outfile_rmod_sino.open(outfile_fullpath_rmod_sino.c_str(),
 			ios::out | ios::binary);
+
+	ofstream outfile_dtmod_sino;
+	outfile_dtmod_sino.open(outfile_fullpath_dtmod_sino.c_str(),
+			 ios::out | ios::binary);
 
 	// ssrb sino names
 	string fname_sino;
@@ -519,10 +527,10 @@ int main(int argc, char **argv) {
 	string blocksino_fullpath_p;
 	string blocksino_fullpath_r;
 
-	stringstream bbss; 
-	bbss << "block_sino_f" << frame_num; 
-	fname_out = bbss.str(); 
-	
+	stringstream bbss;
+	bbss << "block_sino_f" << frame_num;
+	fname_out = bbss.str();
+
 	blocksino_fullpath_p = outfolder + fname_out + "_prompts." + raw_num + ".raw"; 
 	blocksino_fullpath_r = outfolder + fname_out + "_randoms." + raw_num + ".raw"; 
 
@@ -532,9 +540,9 @@ int main(int argc, char **argv) {
 	outfile_block_sino.open(blocksino_fullpath_p.c_str(), ios::out | ios::binary); 
 	outfile_block_sino_r.open(blocksino_fullpath_r.c_str(), ios::out | ios::binary); 
 	
-	fname_out = ""; 
-	bbss << ""; 
-	bbss.clear(); 
+	fname_out = "";
+	bbss << "";
+	bbss.clear();
 
 	string fname_histo_img;
 	string histo_img_fullpath;
@@ -544,13 +552,13 @@ int main(int argc, char **argv) {
 	// ************		Load LUTs  ****************//
 	string fdir_code = "/home/rbayerlein/code/explorer-master/read_lm/lut/";
 
+	/*
 	string scatter_sino_path = fdir_code;  
-	scatter_sino_path.append("block_sino_f0_scatters.sino4d"); 
+	scatter_sino_path.append("f00000_scatters_scaled_big_it2.sino4d"); 
 	ifstream scatter_sino_read; 
 	scatter_sino_read.open(scatter_sino_path.c_str(),  ios::in | ios::binary); 
 	if (!scatter_sino_read) {
 		cout << "could not open scatter sino" <<  endl;
-		cout << scatter_sino_path << endl;
 		return 1; 
 	}
 	vector<double> scatter_sino(num_bins_sino_block * num_block_ring * num_block_ring);
@@ -559,8 +567,8 @@ int main(int argc, char **argv) {
 	}
 	scatter_sino_read.close();
 
-        string tof_wt_path = fdir_code;  
-	tof_wt_path.append("tof_wt"); 
+    string tof_wt_path = fdir_code;  
+	tof_wt_path.append("tof_wt_bigsc"); 
 	ifstream tof_wt_read; 
 	tof_wt_read.open(tof_wt_path.c_str(), ios::in | ios::binary);
 	if (!tof_wt_read) {
@@ -572,6 +580,8 @@ int main(int argc, char **argv) {
 		tof_wt_read.read(reinterpret_cast<char*>(&tof_wt[ti]), sizeof(float)); 
 	}
 	tof_wt_read.close();  
+	vector<double> tof_spectrum(129); 
+	*/
 
 	// open bank lut
 	int lutsum = 0;
@@ -1282,11 +1292,19 @@ int main(int argc, char **argv) {
 						outfile_rmod_sino.write(
 								reinterpret_cast<const char*>(&time_sd),
 								sizeof(double));
+						outfile_dtmod_sino.write(
+								reinterpret_cast<const char*>(&time_sd),
+								sizeof(double));
 						outfile_pmod_sino.write((char*) sino_module_avg.data(),
 								sino_module_avg.size() * sizeof(double));
 						outfile_rmod_sino.write(
 								(char*) sino_module_r_avg.data(),
 								sino_module_r_avg.size() * sizeof(double));
+						for (int temp_dt1 = 0; temp_dt1 < 192; temp_dt1++) {
+							for (int temp_dt2 = 0; temp_dt2 < 192; temp_dt2++) {
+								outfile_dtmod_sino.write(reinterpret_cast<const char*>(&DT_fac[temp_dt1][temp_dt2]), sizeof(double));
+							}
+						}						
 					}
 					// add assorted data
 					for (int rk = 0; rk < num_bins_sino_module * 8 * 8; rk++) {
@@ -1458,6 +1476,7 @@ int main(int argc, char **argv) {
 				axA = floor(crys1 / 70) + (unitA * 84);
 				axB = floor(crys2 / 70) + (unitB * 84);
 		
+
 				blkXa = floor(transA / 7);
 				blkXb = floor(transB / 7);
 				blkYa = floor(axA / 6);
@@ -1572,6 +1591,10 @@ int main(int argc, char **argv) {
 						//	sino_block[ind_block2]++;
 						}
 						if (write_lmfile) {
+							
+//							if (abs(dout[4] < 65)) {
+//								tof_spectrum[dout[4] + 64] = tof_spectrum[dout[4] + 64] + 1.0;
+//							}							
 							pids_p[p_index].txID1 = dout[0];
 							pids_p[p_index].axID1 = dout[1];
 							pids_p[p_index].txID2 = dout[2];
@@ -1609,33 +1632,37 @@ int main(int argc, char **argv) {
 
 								rtemp = (float) sino_module_r_avg[ind_module1]
 										* ((float) frame_length[frame_num]
-												/ (float) r_frame);
+												/ (float) r_frame); // Mean number of randoms of each module pair for the whole recon frame length
 
 								//rtemp = rtemp / (2.0 * (float)num_lor_modpair);
-								if (unit_diff == 0) {
+										// calculate mean num of rand of one LOR (current LOR):
+								if (unit_diff == 0) {	// unit_diff always zero, because commented out at around line 1514
 									rtemp = rtemp
-											/ (2.0 * (float) num_lor_modpair);
+											/ (2.0 * (float) num_lor_modpair);	// multiply num_lor_modpair by 2, otherwise only half the possible crystal pairs between two blocks are considered
 								} else {
 									rtemp = rtemp / ((float) num_lor_modpair);
 								}
 
-								rtemp = rtemp * (39.0625 / t_window);
+								rtemp = rtemp * (39.0625 / t_window);	// Average num of randoms per tof bin
 								
-								//stemp = (float)scatter_sino[ind_block1];
-                                                                //if (blkYa == blkYb) {
-								//	stemp =  stemp  /  (1.0  * (float) num_lor_blkpair);
-								//}   else {
-								//	stemp =  stemp  / ((float) num_lor_blkpair);  
-								//}
-								//if (abs(dout[4] < 64)) {
-					
-								//	stemp = stemp *tof_wt[dout[4]+64];
-								//} else {
-								//	stemp = 0.0; 
-								//}
+//								stemp = (float)scatter_sino[ind_block1];
+ //                               if (blkYa == blkYb) {
+//									stemp =  stemp  /  (1.0  * (float) num_lor_blkpair);
+//								}   else {
+//									stemp =  stemp  / ((float) num_lor_blkpair);  
+//								}
+//								if (abs(dout[4] < 64)) {
+//					
+//									stemp = stemp *tof_wt[dout[4]+64];
+//								} else {
+//									stemp = 0.0; 
+//								}
 								//stemp = stemp * nc_crys[crysaxA + 672*transcA] * nc_crys[crysaxB + 672*transcB]; 
-//								rtemp =  rtemp + stemp; 
-								//rtemp = rtemp * mtemp;	//commented this line out according to an email from eberg on June 2nd, 21
+//								rtemp =  rtemp + (8.0 * stemp / 1.0); 
+//								rtemp = rtemp * mtemp;
+								//rtemp = 0.0;
+								//rtemp = 0.0; 
+								// mtemp = 1.0;  
 
 								//rtemp = rtemp * (nc_crys[crys1] / nc_mod[modA]) * (nc_crys[crys2] / nc_mod[modB]);
 
@@ -1852,6 +1879,20 @@ int main(int argc, char **argv) {
 	pPromptFile = fopen(outfile_fullpath_p.c_str(), "wb");
 	fwrite(&rtemp, sizeof(float), 1, pPromptFile); // dummy file for recon scheduler
 	fclose(pPromptFile);
+
+	outfile_dtmod_sino.close();
+
+//	string tspectrum_outfile = outfolder; 
+//	tspectrum_outfile.append("tspectrum.");
+//	tspectrum_outfile.append(raw_num); 
+//	tspectrum_outfile.append(".raw"); 
+	
+//	ofstream tspectrum_out; 
+//	tspectrum_out.open(tspectrum_outfile.c_str(), ios::out | ios::binary); 
+//	for (int ti = 0; ti < 129; ti++) {
+//		tspectrum_out.write(reinterpret_cast<const char*>(&tof_spectrum[ti]), sizeof(double)); 
+//	}
+//	tspectrum_out.close(); 
 
 	delete[] pRawBuffer;
 	delete[] pids_p;
