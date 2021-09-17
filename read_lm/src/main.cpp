@@ -552,9 +552,8 @@ int main(int argc, char **argv) {
 	// ************		Load LUTs  ****************//
 	string fdir_code = "/home/rbayerlein/code/explorer-master/read_lm/lut/";
 
-	/*
 	string scatter_sino_path = fdir_code;  
-	scatter_sino_path.append("f00000_scatters_scaled_big_it2.sino4d"); 
+	scatter_sino_path.append("f00000_scatters_scaled.sino4d"); 
 	ifstream scatter_sino_read; 
 	scatter_sino_read.open(scatter_sino_path.c_str(),  ios::in | ios::binary); 
 	if (!scatter_sino_read) {
@@ -567,8 +566,9 @@ int main(int argc, char **argv) {
 	}
 	scatter_sino_read.close();
 
+	
     string tof_wt_path = fdir_code;  
-	tof_wt_path.append("tof_wt_bigsc"); 
+	tof_wt_path.append("tof_wt"); 
 	ifstream tof_wt_read; 
 	tof_wt_read.open(tof_wt_path.c_str(), ios::in | ios::binary);
 	if (!tof_wt_read) {
@@ -581,7 +581,7 @@ int main(int argc, char **argv) {
 	}
 	tof_wt_read.close();  
 	vector<double> tof_spectrum(129); 
-	*/
+
 
 	// open bank lut
 	int lutsum = 0;
@@ -1453,7 +1453,7 @@ int main(int argc, char **argv) {
 
 				if (num_coinc > cou) { // counter for keeping track of number of events
 					cout << "num events = " << num_coinc << "\n";
-					cou = cou + 100000000.0;
+					cou = cou + 100000000.0; // 0.1 bn events
 				}
 
 				num_coinc += 1.0;
@@ -1511,7 +1511,7 @@ int main(int argc, char **argv) {
 				dout[3] = COINC::GetAxID2(pRawBuffer[i]) + (short) unitB; // add unit gap
 				dout[4] = COINC::GetTATB(pRawBuffer[i]);
 
-				//unit_diff = abs(unitA - unitB);
+				unit_diff = abs(unitA - unitB);
 				t_window = coinc_window[abs(unitA - unitB)];
 
 				/*
@@ -1645,24 +1645,21 @@ int main(int argc, char **argv) {
 
 								rtemp = rtemp * (39.0625 / t_window);	// Average num of randoms per tof bin
 								
-//								stemp = (float)scatter_sino[ind_block1];
- //                               if (blkYa == blkYb) {
-//									stemp =  stemp  /  (1.0  * (float) num_lor_blkpair);
-//								}   else {
-//									stemp =  stemp  / ((float) num_lor_blkpair);  
-//								}
-//								if (abs(dout[4] < 64)) {
-//					
-//									stemp = stemp *tof_wt[dout[4]+64];
-//								} else {
-//									stemp = 0.0; 
-//								}
-								//stemp = stemp * nc_crys[crysaxA + 672*transcA] * nc_crys[crysaxB + 672*transcB]; 
-//								rtemp =  rtemp + (8.0 * stemp / 1.0); 
-//								rtemp = rtemp * mtemp;
-								//rtemp = 0.0;
-								//rtemp = 0.0; 
-								// mtemp = 1.0;  
+								stemp = (float)scatter_sino[ind_block1]; // avg num scatters per block pair
+                                if (blkYa == blkYb) {
+									stemp =  stemp  /  (1.0  * (float) num_lor_blkpair);	// avg num scatters per lor
+								}   else {
+									stemp =  stemp  / ((float) num_lor_blkpair);  
+								}
+								if (abs(dout[4] < 64)) {
+					
+									stemp = stemp *tof_wt[dout[4]+64];
+								} else {
+									stemp = 0.0; 
+								}
+								stemp = stemp * nc_crys[crysaxA + 672*transcA] * nc_crys[crysaxB + 672*transcB]; 
+								rtemp =  rtemp + (8.0 * stemp / 1.0); 
+								rtemp = rtemp * mtemp;
 
 								//rtemp = rtemp * (nc_crys[crys1] / nc_mod[modA]) * (nc_crys[crys2] / nc_mod[modB]);
 
