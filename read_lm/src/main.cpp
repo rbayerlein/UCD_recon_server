@@ -1658,8 +1658,8 @@ int main(int argc, char **argv) {
 									stemp = 0.0; 
 								}
 								stemp = stemp * nc_crys[crysaxA + 672*transcA] * nc_crys[crysaxB + 672*transcB]; 
-								rtemp =  rtemp + (8.0 * stemp / 1.0); 
-								rtemp = rtemp * mtemp;
+								rtemp =  rtemp +  stemp;	// add scatters and randoms 
+								rtemp = rtemp * mtemp;		// apply dead time and decay correction to scatters and randoms
 
 								//rtemp = rtemp * (nc_crys[crys1] / nc_mod[modA]) * (nc_crys[crys2] / nc_mod[modB]);
 
