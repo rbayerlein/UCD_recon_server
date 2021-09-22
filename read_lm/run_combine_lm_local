@@ -1,2 +1,8 @@
 #!/bin/bash
-./combine_listmode temp_out/lm_reorder_f0.lm temp_out/lm_reorder_f0_prompts.1.lm temp_out/lm_reorder_f0_prompts.2.lm temp_out/lm_reorder_f0_prompts.3.lm temp_out/lm_reorder_f0_prompts.4.lm temp_out/lm_reorder_f0_prompts.5.lm temp_out/lm_reorder_f0_prompts.6.lm temp_out/lm_reorder_f0_prompts.7.lm temp_out/lm_reorder_f0_prompts.8.lm
+temp_out=/mnt/ssd/rbayerlein/explorer/recon_data_temp/phantom_6beds_78rings_from188_34rings_overlap_220_4it_scatter_corr_20210916
+
+cd /home/rbayerlein/code/explorer-master/reconstruction/lmrecon_explorer/app
+
+./combine_listmode $temp_out/lm_reorder_f0.lm $temp_out/lm_reorder_f0_prompts.1.lm $temp_out/lm_reorder_f0_prompts.2.lm $temp_out/lm_reorder_f0_prompts.3.lm $temp_out/lm_reorder_f0_prompts.4.lm $temp_out/lm_reorder_f0_prompts.5.lm $temp_out/lm_reorder_f0_prompts.6.lm $temp_out/lm_reorder_f0_prompts.7.lm $temp_out/lm_reorder_f0_prompts.8.lm
+
+cd -
