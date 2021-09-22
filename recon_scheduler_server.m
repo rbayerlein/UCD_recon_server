@@ -4,11 +4,8 @@ handles_name = '/home/rbayerlein/code/explorer-master/handles_scheduler.mat';
 
 pause(0.1); 
 h = load(handles_name); 
-handles = h.handles
+handles = h.handles;
 clear h; 
-pause(0.1); 
-
-delete(handles_name); 
 pause(0.1); 
 
 lm_counter = 1; 
@@ -29,13 +26,24 @@ recon_frame_running = zeros(length(handles.reconFrames), 1);
 
 
 %% toBeDeleted
-fname_log='/home/rbayerlein/test.log'
+fname_log='/home/rbayerlein/code/explorer-master/test.log';
 fid_log = fopen(fname_log, 'w');
+pause(0.1);
+
+ssss = ['chmod 775 ', fname_log]; 
+system(ssss); 
+pause(0.1);
+
+fprintf(fid_log, 'start of recon_scheduler_server\n');
 %%
 
+use_scat_corr=handles.scatter_onoff.Value;
+fprintf(fid_log, 'correct scatter: %d\n', double(use_scat_corr));
 
 not_done = true; 
 lm_done = false; 
+
+
 
 while not_done
   
@@ -84,11 +92,11 @@ while not_done
 
         for lmk = 1:8
           str_delete_lm = ['rm ', handles.server_recon_data_dir,'/',outfolder_server_temp, '/lm_reorder_f',num2str(m),'_prompts.',num2str(lmk),'.lm\n\n']; 
-          fprintf(fid,str_delete_lm); 
+        %  fprintf(fid,str_delete_lm); 
           str_delete_mul_fac = ['rm ', handles.server_recon_data_dir,'/',outfolder_server_temp, '/lm_reorder_f',num2str(m),'_prompts.',num2str(lmk),'.mul_fac\n\n'];
-          fprintf(fid,str_delete_mul_fac); 
+        %  fprintf(fid,str_delete_mul_fac); 
           str_delete_add_fac = ['rm ', handles.server_recon_data_dir,'/',outfolder_server_temp, '/lm_reorder_f',num2str(m),'_prompts.',num2str(lmk),'.add_fac\n\n'];
-          fprintf(fid, str_delete_add_fac); 
+        %  fprintf(fid, str_delete_add_fac); 
         end
 
         %str = ['export OMP_NUM_THREADS=',num2str(handles.num_threads_server),'\n\n'];
@@ -153,20 +161,24 @@ while not_done
 
         for lmk = 1:8
           str_delete_lm = ['rm ', handles.server_recon_data_dir,'/',outfolder_server_temp, '/lm_reorder_f',num2str(m),'_prompts.',num2str(lmk),'.lm\n\n']; 
-          fprintf(fid,str_delete_lm); 
+        %  fprintf(fid,str_delete_lm); 
           str_delete_mul_fac = ['rm ', handles.server_recon_data_dir,'/',outfolder_server_temp, '/lm_reorder_f',num2str(m),'_prompts.',num2str(lmk),'.mul_fac\n\n'];
-          fprintf(fid,str_delete_mul_fac); 
+        %  fprintf(fid,str_delete_mul_fac); 
           str_delete_add_fac = ['rm ', handles.server_recon_data_dir,'/',outfolder_server_temp, '/lm_reorder_f',num2str(m),'_prompts.',num2str(lmk),'.add_fac\n\n'];
-          fprintf(fid, str_delete_add_fac); 
+        %  fprintf(fid, str_delete_add_fac); 
         end
 
         str = ['export OMP_NUM_THREADS=',num2str(handles.num_threads_server),'\n\n'];
       
         fprintf(fid,str);
         str = '';
-        str = [handles.recon_path_server, 'lmrecon_tof  ',handles.server_recon_data_dir,'/', outfolder_server_temp,'/lmacc_scanner_parameter_f',num2str(m),'.cfg\n\n'];
-     
+        if use_scat_corr > 0.5
+          str = ['cd ', handles.install_dir_server, '/scatter_correct','; matlab -nodesktop -nodisplay -r "scat_corr_recon(', num2str(m), ')" & \n pid=$! \necho $pid > process_id\n\n']; % run scatt corr recon 
+        else
+          str = [handles.recon_path_server, 'lmrecon_tof  ',handles.server_recon_data_dir,'/', outfolder_server_temp,'/lmacc_scanner_parameter_f',num2str(m),'.cfg\n\n'];
+        end     
         fprintf(fid,str);
+        fprintf(fid_log, str); %toBeDeleted
         str = ''; 
 
         fclose(fid);
@@ -217,7 +229,7 @@ while not_done
   	  idn_f = strfind(cmd_mvdata, '.8.add_fac'); 
   	  cmd_deletedata = ['rm ',cmd_mvdata(6:idn_f+10)]; 
   	  %cmd_deletedata = ['rm -r "', handles.outfolder, 'lm_reorder_f', num2str(m), '_prompts.lm ',handles.outfolder,'lm_reorder_f',num2str(m),'_prompts.add_fac" ']; 
-  	  system(cmd_deletedata); 
+  	 % system(cmd_deletedata); 
   	  pause(0.1); 
 
       lm_data_ready(lm_counter) = 1; 
@@ -267,7 +279,7 @@ while not_done
         if ~subsample_on
           % wipe the temporary dir on the server
           cmd_clean = ['cd ', handles.server_recon_data_dir,' && rm -r ', handles.server_temp_dir{kk},'/ ',]; 
-          system(cmd_clean); 
+        %  system(cmd_clean); 
           pause(0.01);
         end
         recon_frame_done(kk) = 1; 
@@ -323,7 +335,13 @@ while not_done
 
 end
 
-fclose(fid_log);
+
+fprintf(fid_log, 'done all recons of all frames and iterations.'); %toBeDeleted
+disp('done all recons of all frames and iterations.'); %toBeDeleted
+
+fclose(fid_log); %toBeDeleted
+%delete(handles_name); 
+pause(0.1); 
 quit
 
 
@@ -337,6 +355,8 @@ quit
 
 
 function make_explorer_lmacc_config_server(handles, frame, server_dir)
+
+use_scat_corr = handles.scatter_onoff.Value;
 
 fname_cfg = [handles.lm_outfolder, 'lmacc_scanner_parameter_f', num2str(frame), '.cfg']; 
 
@@ -431,15 +451,19 @@ str = 'regularizer_buildin_parameter_list = 1e-9\n\n';
 fprintf(fid1,str); 
 str = '';
 
-
-str = ['iteration_setting = 13, 1, ',num2str(handles.osem_iter),'    #  subsets, save step, iteration number\n\n']; 
+if use_scat_corr > 0.5
+  str = ['iteration_setting = 13, 1, 1    #  subsets, save step, iteration number\n\n']; 
+else
+  str = ['iteration_setting = 13, 1, ',num2str(handles.osem_iter),'    #  subsets, save step, iteration number\n\n']; 
+end
 fprintf(fid1,str); 
 str = '';
 
-%     #  KEM   2
-
-%# initial_guess = ./lmrecon_tof_475x475x1355_200MBq_20min_PSF.intermediate.1
-
+if use_scat_corr > 0.5
+  str = ['initial_guess = ', handles.server_recon_data_dir, '/', server_dir, '/img_guess_next_iter_f', num2str(frame), '\n\n'];
+  fprintf(fid1,str); 
+  str = '';
+end
 
 str = ['input_raw_data_file = ',handles.server_recon_data_dir,'/',server_dir,'/lm_reorder_f',num2str(frame),'_prompts\n\n']; 
 fprintf(fid1,str); 
@@ -451,8 +475,13 @@ str = 'input_raw_data_format_type = 0\n\n';
 fprintf(fid1,str); 
 str = ''; 
 
-str = ['reconstruction_output_setting = ',handles.server_recon_data_dir,'/',server_dir,', ./',handles.fname_recon,'_f',num2str(frame),'\n\n']; 
+if use_scat_corr > 0.5
+  str = ['reconstruction_output_setting = ',handles.server_recon_data_dir,'/',server_dir,', ./lmrecon_output_f',num2str(frame),'\n\n']; 
+else
+  str = ['reconstruction_output_setting = ',handles.server_recon_data_dir,'/',server_dir,', ./',handles.fname_recon,'_f',num2str(frame),'\n\n']; 
+end
 fprintf(fid1,str); 
+
 
 fclose(fid1); 
 
