@@ -5,7 +5,6 @@
 #include <math.h> // deprecated - try <cmath> later
 
 #include "../../include/coinc.h"
-#include "../../include/Subsample.h"
 
 #define PI 3.141592653589793
 #define BUFFER_SIZE 65536
@@ -304,8 +303,8 @@ int main(int argc, char **argv) {
 	int nv, nu, nvtemp, nutemp, ntemp = 0;
 	int sino_ax_span = 10000;
 	int block_ax_span = 2;
-	int num_lor_modpair = 4323270; //2940!/(2!*2938!) + 2940  // number of ways to choose two crystals from two modules, whereby (1,2) and (2,1) would not be counted separately
-	int num_lor_blkpair = 903;	//same here: number of pairs between 2 blocks, but (1,2) and (2,1) not counted separately
+	int num_lor_modpair = 4323270;
+	int num_lor_blkpair = 903;
 	int michel_ind = 0;
 
 	vector<double> sino_block(num_bins_sino_block * num_block_ring * num_block_ring);
@@ -363,11 +362,6 @@ int main(int argc, char **argv) {
 	double singles_bkg = 36000.0;
 	double DT_fac[192][192] = { 1.0 };
 
-	// decay correction
-	double DF_eff, DF = 1.0;
-	int time_elapsed = 1.0;
-	double decay_time_constant = 109.77120*60;	//F-18, in seconds, source: https://en.wikipedia.org/wiki/Fluorine-18, rbayerlein, 05/24/2021
-
 	// dynamic 
 	int frame_start = 0.0;
 	int frame_end = 0.0;
@@ -385,9 +379,6 @@ int main(int argc, char **argv) {
 	bool write_lm = false;
 	string runrecon_str = "";
 	string removeraws_str = "";
-
-	// spatial sub subsampling
-	bool use_spatial_subsampling = true;	//added 07/20/21 rbayerlein, use this to switch sub sampling tool on or off
 
 
 	///////////////////////////////////////////////////////////////////////////
@@ -539,7 +530,7 @@ int main(int argc, char **argv) {
 
 	outfile_block_sino.open(blocksino_fullpath_p.c_str(), ios::out | ios::binary); 
 	outfile_block_sino_r.open(blocksino_fullpath_r.c_str(), ios::out | ios::binary); 
-	
+
 	fname_out = "";
 	bbss << "";
 	bbss.clear();
@@ -550,10 +541,11 @@ int main(int argc, char **argv) {
 	string frameinfo_fullpath;
 
 	// ************		Load LUTs  ****************//
-	string fdir_code = "/home/rbayerlein/code/explorer-master/read_lm/lut/";
+	string fdir_code = "/home/eberg/code/explorer-master/read_lm/lut/";
 
+	/*
 	string scatter_sino_path = fdir_code;  
-	scatter_sino_path.append("f00000_scatters_scaled.sino4d"); 
+	scatter_sino_path.append("f00000_scatters_scaled_big_it2.sino4d"); 
 	ifstream scatter_sino_read; 
 	scatter_sino_read.open(scatter_sino_path.c_str(),  ios::in | ios::binary); 
 	if (!scatter_sino_read) {
@@ -566,9 +558,8 @@ int main(int argc, char **argv) {
 	}
 	scatter_sino_read.close();
 
-	
     string tof_wt_path = fdir_code;  
-	tof_wt_path.append("tof_wt"); 
+	tof_wt_path.append("tof_wt_bigsc"); 
 	ifstream tof_wt_read; 
 	tof_wt_read.open(tof_wt_path.c_str(), ios::in | ios::binary);
 	if (!tof_wt_read) {
@@ -581,7 +572,7 @@ int main(int argc, char **argv) {
 	}
 	tof_wt_read.close();  
 	vector<double> tof_spectrum(129); 
-
+	*/
 
 	// open bank lut
 	int lutsum = 0;
@@ -941,11 +932,6 @@ int main(int argc, char **argv) {
 			<< hour00 << ":" << minute00 << ":" << second00 << "." << milli00
 			<< endl;
 
-// invoke sub sampling tool and pass first time stamp
-	int firstTimeStamp = hour00*60*60+minute00*60+second00;		// included 05-24-2021, rbayerlein
-	Subsample SUBS(infile_fullpath, firstTimeStamp);			
-
-
 	// ========================= get initial count rates =========================
 
 	ss0 = milli00; // temporary assignment of start time
@@ -960,7 +946,6 @@ int main(int argc, char **argv) {
 	cout << "*** Getting initial count rates ***" << endl;
 
 	bool found_initial_count_rate = false;
-	bool keep_event = true;
 	while (!found_initial_count_rate) { // stop when initial count rate found
 		unsigned long long read_count = fread(pRawBuffer, sizeof(uint64_t),
 		BUFFER_SIZE, pInputFile); // returns BUFFER_SIZE events read unless EOF
@@ -1161,10 +1146,7 @@ int main(int argc, char **argv) {
 				ind_module2 = ind_module_trans + (num_bins_sino_module * unitB)
 						+ (num_bins_sino_module * 8 * unitA);
 
-				keep_event = SUBS.KeepEvent(axA, axB, transA, transB, hour1*60*60+minute1*60+second1); // evaluate whether to keep event
-				if (!use_spatial_subsampling) keep_event = true; // keep all events in case spatial subsampling is off
-
-				if (ind_module_trans >= 0 && keep_event) {
+				if (ind_module_trans >= 0) {
 					if (COINC::IsDelayFlag(pRawBuffer[i])) { // bin to delay related stuff
 						random_rate_new[modA + 24 * unitA] += 1.0;
 						random_rate_new[modB + 24 * unitB] += 1.0;
@@ -1304,7 +1286,7 @@ int main(int argc, char **argv) {
 							for (int temp_dt2 = 0; temp_dt2 < 192; temp_dt2++) {
 								outfile_dtmod_sino.write(reinterpret_cast<const char*>(&DT_fac[temp_dt1][temp_dt2]), sizeof(double));
 							}
-						}						
+						}
 					}
 					// add assorted data
 					for (int rk = 0; rk < num_bins_sino_module * 8 * 8; rk++) {
@@ -1453,7 +1435,7 @@ int main(int argc, char **argv) {
 
 				if (num_coinc > cou) { // counter for keeping track of number of events
 					cout << "num events = " << num_coinc << "\n";
-					cou = cou + 100000000.0; // 0.1 bn events
+					cou = cou + 100000000.0;
 				}
 
 				num_coinc += 1.0;
@@ -1475,8 +1457,8 @@ int main(int argc, char **argv) {
 
 				axA = floor(crys1 / 70) + (unitA * 84);
 				axB = floor(crys2 / 70) + (unitB * 84);
-		
 
+				
 				blkXa = floor(transA / 7);
 				blkXb = floor(transB / 7);
 				blkYa = floor(axA / 6);
@@ -1511,7 +1493,7 @@ int main(int argc, char **argv) {
 				dout[3] = COINC::GetAxID2(pRawBuffer[i]) + (short) unitB; // add unit gap
 				dout[4] = COINC::GetTATB(pRawBuffer[i]);
 
-				unit_diff = abs(unitA - unitB);
+				//unit_diff = abs(unitA - unitB);
 				t_window = coinc_window[abs(unitA - unitB)];
 
 				/*
@@ -1541,14 +1523,7 @@ int main(int argc, char **argv) {
 						+ (num_bins_sino_module * 8 * unitB);
 				ind_module2 = ind_module_trans + (num_bins_sino_module * unitB)
 						+ (num_bins_sino_module * 8 * unitA);
-
-				if (!use_spatial_subsampling){
-					keep_event = true; // keep all events in case spatial subsampling is off
-				}else{
-					keep_event = SUBS.KeepEvent(axA, axB, transA, transB, hour1*60*60+minute1*60+second1); // evaluate whether to keep event
-				}
-
-				if (ind_module_trans >= 0 && keep_event) {
+				if (ind_module_trans >= 0) {
 					if (COINC::IsDelayFlag(pRawBuffer[i])) {
 						random_rate_new[modA + 24 * unitA] =
 								random_rate_new[modA + 24 * unitA] + 1.0;
@@ -1574,7 +1549,7 @@ int main(int argc, char **argv) {
 					}
 				}
 
-				if (ind_block_trans >=0 && keep_event) { 
+				if (ind_block_trans >=0) { 
 					if (COINC::IsDelayFlag(pRawBuffer[i])) {
                                                sino_block_r[ind_block1] = sino_block_r[ind_block1] + 1.0; 
 //                                               sino_block_r[ind_block2] = sino_block_r[ind_block2] + 1.0; 
@@ -1584,7 +1559,7 @@ int main(int argc, char **argv) {
 					}
 				}
 				
-				if (ind >= 0 && keep_event) {
+				if (ind >= 0) {
 					if (!COINC::IsDelayFlag(pRawBuffer[i])) { // prompt event
 						if ((ind_block > 0)
 								&& (abs(blkYa - blkYb) <= block_ax_span)) {
@@ -1594,7 +1569,7 @@ int main(int argc, char **argv) {
 							
 //							if (abs(dout[4] < 65)) {
 //								tof_spectrum[dout[4] + 64] = tof_spectrum[dout[4] + 64] + 1.0;
-//							}							
+//							}
 							pids_p[p_index].txID1 = dout[0];
 							pids_p[p_index].axID1 = dout[1];
 							pids_p[p_index].txID2 = dout[2];
@@ -1610,14 +1585,9 @@ int main(int argc, char **argv) {
 							mtemp = 1.0;
 							mtemp = (float) DT_fac[modA + 24 * unitA][modB
 									+ 24 * unitB];
+							
 
-							// add decay correction, 05/24/2021, rbayerlein
-							time_elapsed = hour1*60*60+minute1*60+second1 - firstTimeStamp;
-							DF_eff = pow(0.5, (double)(time_elapsed/decay_time_constant));	// from S.Cherry, Physics in Nuclear Medicine, v.4, p.36
-							DF = 1/DF_eff;
-							mtemp = mtemp * DF;
-
-							if (r_singles) { // false, 08/18/2021, rbayerlein
+							if (r_singles) {
 								singles_c1 = block_rate[blk_absA] / 42.0;
 								singles_c2 = block_rate[blk_absB] / 42.0;
 								rstemp = singles_c1 * singles_c2
@@ -1632,34 +1602,36 @@ int main(int argc, char **argv) {
 
 								rtemp = (float) sino_module_r_avg[ind_module1]
 										* ((float) frame_length[frame_num]
-												/ (float) r_frame); // Mean number of randoms of each module pair for the whole recon frame length
+												/ (float) r_frame);
 
 								//rtemp = rtemp / (2.0 * (float)num_lor_modpair);
-										// calculate mean num of rand of one LOR (current LOR):
-								if (unit_diff == 0) {	// unit_diff always zero, because commented out at around line 1514
+								if (unit_diff == 0) {
 									rtemp = rtemp
-											/ (2.0 * (float) num_lor_modpair);	// multiply num_lor_modpair by 2, otherwise only half the possible crystal pairs between two blocks are considered
+											/ (2.0 * (float) num_lor_modpair);
 								} else {
 									rtemp = rtemp / ((float) num_lor_modpair);
 								}
 
-								rtemp = rtemp * (39.0625 / t_window);	// Average num of randoms per tof bin
+								rtemp = rtemp * (39.0625 / t_window);
 								
-								stemp = (float)scatter_sino[ind_block1]; // avg num scatters per block pair
-                                if (blkYa == blkYb) {
-									stemp =  stemp  /  (1.0  * (float) num_lor_blkpair);	// avg num scatters per lor
-								}   else {
-									stemp =  stemp  / ((float) num_lor_blkpair);  
-								}
-								if (abs(dout[4] < 64)) {
-					
-									stemp = stemp *tof_wt[dout[4]+64];
-								} else {
-									stemp = 0.0; 
-								}
-								stemp = stemp * nc_crys[crysaxA + 672*transcA] * nc_crys[crysaxB + 672*transcB]; 
-								rtemp =  rtemp +  stemp;	// add scatters and randoms 
-								rtemp = rtemp * mtemp;		// apply dead time and decay correction to scatters and randoms
+//								stemp = (float)scatter_sino[ind_block1];
+ //                               if (blkYa == blkYb) {
+//									stemp =  stemp  /  (1.0  * (float) num_lor_blkpair);
+//								}   else {
+//									stemp =  stemp  / ((float) num_lor_blkpair);  
+//								}
+//								if (abs(dout[4] < 64)) {
+//					
+//									stemp = stemp *tof_wt[dout[4]+64];
+//								} else {
+//									stemp = 0.0; 
+//								}
+								//stemp = stemp * nc_crys[crysaxA + 672*transcA] * nc_crys[crysaxB + 672*transcB]; 
+//								rtemp =  rtemp + (8.0 * stemp / 1.0); 
+//								rtemp = rtemp * mtemp;
+								//rtemp = 0.0;
+								//rtemp = 0.0; 
+								mtemp = 1.0;  
 
 								//rtemp = rtemp * (nc_crys[crys1] / nc_mod[modA]) * (nc_crys[crys2] / nc_mod[modB]);
 

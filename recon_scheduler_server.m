@@ -12,40 +12,39 @@ delete(handles_name);
 pause(0.1); 
 
 lm_counter = 1; 
-img_counter = 1; 
-
-lm_data_ready = zeros(length(handles.reconFrames)+1, 1); 
 
 subsample_on = handles.subsample; 
-subsample_done = false; 
 
 if subsample_on
   reconFrames_lm = [0,1]; 
 else
-  reconFrames_lm = [handles.reconFrames, (handles.reconFrames(end)+1)];
+  reconFrames_lm = [handles.reconFrames, (handles.reconFrames(end)+1)]; % one entry more than actual number of frames
 end
 
-lm_data_ready = zeros(length(reconFrames_lm), 1); 
+lm_data_ready = zeros(length(reconFrames_lm), 1);   % length one larger than actual number of frames
 
 
 recon_frame_done = zeros(length(handles.reconFrames), 1); 
 recon_frame_running = zeros(length(handles.reconFrames), 1); 
 
 
-
+%% toBeDeleted
+fname_log='/home/rbayerlein/test.log'
+fid_log = fopen(fname_log, 'w');
+%%
 
 
 not_done = true; 
-recon_full = false; 
 lm_done = false; 
 
 while not_done
   
   % first check if the next in line lm files are all ready, by checking if all next ones are created. 
   if ~lm_done
-    ch_lm = true; 
+    ch_lm = true;   % ch_lm = check list mode, i.e. check if list mode files exist
     for k = 1:8
       fname_lm_ch = [handles.lm_outfolder, 'lm_reorder_f', num2str(reconFrames_lm(lm_counter+1)), '_prompts.', num2str(k), '.lm']; 
+      fprintf(fid_log, '\n%s', fname_lm_ch); %toBeDeleted
       if ~exist(fname_lm_ch, 'file');
         ch_lm = false; 
       end
@@ -131,7 +130,7 @@ while not_done
 
         end
 
-      else
+      else  % i.e. if subsample is NOT on
   	    % combine 8 .lm files into 1 for UCD recon
   	    cmd_combine = ['combine_listmode ',...
   		  handles.server_recon_data_dir,'/',outfolder_server_temp, '/lm_reorder_f',num2str(m),'_prompts.lm ',...
@@ -223,9 +222,9 @@ while not_done
 
       lm_data_ready(lm_counter) = 1; 
       lm_counter = lm_counter + 1;
-    end
+    end % if ch_lm
     
-  end
+  end % if ~lm_done
 
   if sum(lm_data_ready(:)) == (length(lm_data_ready)-1)
     lm_done = true; 
@@ -234,14 +233,15 @@ while not_done
 
   % check how many images are completed
   img_ind_start = find(recon_frame_done == 0, 1, 'first'); 
-  img_ind_end = min([(img_ind_start+3*handles.max_par_recon), length(handles.reconFrames)]); 
-   
+  img_ind_end = min([(img_ind_start+3*handles.max_par_recon), length(handles.reconFrames)]); % max_par_recon = 12
+  fprintf(fid_log,'\nimg_ind_start: %d, img_ind_end: %d\n', img_ind_start, img_ind_end); %toBeDeleted
+
   for kk = img_ind_start:img_ind_end
+    fprintf(fid_log, 'frame %d done: %d\n', kk, double(recon_frame_done(kk)));%toBeDeleted
     if recon_frame_done(kk) < 0.5
       ch_img = true;
       for ii = handles.osem_iter:handles.osem_iter
-
-        fname_img_ch_local = [handles.lm_outfolder, handles.fname_recon, '_f', num2str(handles.reconFrames(kk)), '.intermediate.',num2str(ii)]; 
+        fprintf(fid_log, 'check image for iteration ii = %d\n', ii);%toBeDeleted
         
         if subsample_on
           fname_img_ch = [handles.server_recon_data_dir, '/', handles.server_temp_dir{1},'/',handles.fname_recon, '_f', num2str(handles.reconFrames(kk)), '.intermediate.',num2str(ii)];
@@ -261,7 +261,7 @@ while not_done
         if ~exist(fname_img_ch_local, 'file')
           ch_img = false; 
         end
-      end
+      end % for loop over iterations
       
       if ch_img
         if ~subsample_on
@@ -272,12 +272,10 @@ while not_done
         end
         recon_frame_done(kk) = 1; 
         recon_frame_running(kk) = 0; 
-        img_counter = img_counter + 1; 
-      end
-    end
-  end
+      end % if ch_img
+    end % end of if recon_frame_done(kk) < 0.5
+  end % for loop over images
 
-  num_recons = sum(recon_frame_running(:));
 
   if sum(recon_frame_done(:)) == length(handles.reconFrames)
     not_done = false; 
@@ -295,24 +293,24 @@ while not_done
       %run_uex_recon_x(handles, handles.reconFrames(N));
       
       % run the recon script
-          recon_frame_running(N) = 1; 
-	  if subsample_on
+      recon_frame_running(N) = 1; 
+      
+      if subsample_on
             if N==1
               cmd_runrecon = [handles.server_recon_data_dir,'/',handles.server_temp_dir{1},'/run_lmrecon_explorer_f',num2str(handles.reconFrames(N)),' & wait '];
-              subsample_done = true;
               recon_frame_done(N) = 1;
               recon_frame_running(N) = 0;   
             else
              cmd_runrecon = [handles.server_recon_data_dir, '/',handles.server_temp_dir{1},'/run_lmrecon_explorer_f',num2str(handles.reconFrames(N)),' & ']; 
             end 
  
-          else
+      else
             cmd_runrecon = [handles.server_recon_data_dir,'/',handles.server_temp_dir{N},'/run_lmrecon_explorer_f',num2str(handles.reconFrames(N)),' & ']; 
-          end
+      end
 	  %cmd_runrecon = ['ssh ', handles.user, '@', handles.server_name, ' "cd ', handles.recon_path_server,' ; ',cmd_combine,' ; cd ', handles.server_recon_data_dir,'/',outfolder_server_temp,' ; ./run_lmrecon_explorer_f',num2str(m),'"; ', cmd_imgreturn, ' & ']; 
 
-	  system(cmd_runrecon); 
-	  pause(0.1); 
+      system(cmd_runrecon); 
+      pause(0.1); 
      
       %server_temp_dir{N} = fout;
     end
@@ -325,7 +323,7 @@ while not_done
 
 end
 
-
+fclose(fid_log);
 quit
 
 
