@@ -30,10 +30,9 @@ server_name = 'exp-sim-001';
 
 %simset install dir
 install_dir = '/home/rbayerlein/code/Recon/scatter_correction/';    % indepentent of handler file
-amap_processing_dir = [install_dir, 'amap_processing'],
-umap_processing_dir = [install_dir, 'umap_processing'];
-scripts_dir = [install_dir, 'scripts'];
-data_processing_dir = [install_dir, 'data_processing'];
+amap_processing_dir = [install_dir, 'simset/amap_processing'];
+umap_processing_dir = [install_dir, 'simset/umap_processing'];
+scripts_dir = [install_dir, 'simset/scripts'];
 
 fprintf(fid_log, 'frame number: %d\n', frame_num);
 
@@ -76,12 +75,26 @@ num_threads_per_frame = num_threads_avail;
 
 for iter = 1 : handles.osem_iter
 %% recon part
+
+    %check if last recon and if so, delete image guess to run recon without
+    %guess and set number of iterations from 1 to handles.osem_iter
+    if iter == handles.osem_iter
+        cmd_sed = ['sed -i "s/iteration_setting = ', num2str(handles.osem_subs),', 1, 1/iteration_setting = ',num2str(handles.osem_subs), ' 1, ', num2str(handles.osem_iter), '/g" ', handles.server_recon_data_dir,'/', outfolder_server_temp, '/lmacc_scanner_parameter_f', num2str(frame_num), '.cfg'];
+        fprintf(fid_log, 'replacing number of iterations in lmacc config file: \n%s\n', cmd_sed); disp('replacing number of iterations in lmacc config file');
+        system(cmd_sed);
+        pause(0.1);
+
+        cmd_rm_guess = ['rm ', handles.server_recon_data_dir,'/', outfolder_server_temp, '/img_guess_next_iter_f', num2str(frame_num)];
+        fprintf(fid_log, 'removing image guess:\n%s\n', cmd_rm_guess); disp('removing image guess');
+        system(cmd_rm_guess);
+        pause(0.1);
+    end
     
     %start recon
     cmd_recon = [handles.recon_path_server, 'lmrecon_tof  ',handles.server_recon_data_dir,'/', outfolder_server_temp,'/lmacc_scanner_parameter_f',num2str(frame_num),'.cfg &'];
-    msg = ['starting recon for iteration ', num2str(iter)],
+    msg = ['starting recon for iteration ', num2str(iter)];
     fprintf(fid_log, '%s\n', msg); disp(msg);
-    system(cmd_recon);
+%     system(cmd_recon);
     pause(0.1);
     
     % check if done and continue
@@ -123,7 +136,7 @@ for iter = 1 : handles.osem_iter
     system(cmd_rm);
     pause(0.1);
     %.img file
-    recon_file_name_img = [recon_file_name(1:strfind(recon_file_name, '.intermediate.')), 'img' ]
+    recon_file_name_img = [recon_file_name(1:strfind(recon_file_name, '.intermediate.')), 'img' ];
     cmd_rm_img = ['rm ', recon_file_name_img];
     system(cmd_rm_img);
     pause(0.1);   
@@ -132,10 +145,10 @@ for iter = 1 : handles.osem_iter
     
     % skip scatter correction part if it's the last iteration
     if iter == handles.osem_iter
-        fprintf(fid_log, 'finished recon of last iteration. no scatter correction neccessary. deleting image guess.');
-        cmd_rm = ['rm ', handles.server_recon_data_dir,'/', outfolder_server_temp, '/img_guess_next_iter_f', num2str(frame_num)];
-        system(cmd_rm);
-        pause(0.1);
+        fprintf(fid_log, 'finished recon of last iteration. no scatter correction neccessary.'); disp('finished recon of last iteration. no scatter correction neccessary.');
+%         cmd_rm = ['rm ', handles.server_recon_data_dir,'/', outfolder_server_temp, '/img_guess_next_iter_f', num2str(frame_num)];
+%         system(cmd_rm);
+%         pause(0.1);
         break; % break out of big for loop
     end
 
@@ -183,7 +196,7 @@ for iter = 1 : handles.osem_iter
         disp(msg);
         fprintf(fid_log, '%s\n', warn_msg);
     end
-    s = dir(lm_filename)
+    s = dir(lm_filename);
     num_to_simulate = double(s.bytes);   % simulate 10 times as may as in lm file. an event has 10 byte. So file size equals num_to_simulate.
     if num_to_simulate < 1e8
         num_to_simulate = 1e8;
@@ -211,8 +224,8 @@ for iter = 1 : handles.osem_iter
     fprintf(fid_log,'Generating material map...\n'); disp('Generating material map...');
 
     cd(sprintf('%s', umap_processing_dir));
-    [~,basename_out] = fileparts(dir_ctac)
-    fname_matmap = strcat(dir_umap,'/',basename_out,'.matmap')
+    [~,basename_out] = fileparts(dir_ctac);
+    fname_matmap = strcat(dir_umap,'/',basename_out,'.matmap');
     data_matmap = Ct2Matmap(dir_ctac,hu_limits,fname_water,img_size,vox_size,tx_fov);
     fwrite(fopen(fname_matmap,'w'),data_matmap,'int32');
     cd(sprintf('%s', scripts_dir));
@@ -243,14 +256,12 @@ for iter = 1 : handles.osem_iter
     fname_phg_act_tables = sprintf('%s/f%d/phg_act_table.%d',dir_amaps_out,iter, iter); 
     fprintf(fid_log, 'fname_phg_act_tables: %s\n', fname_phg_act_tables);
     
-    SaveImg2Amap(fname_amaps_in,fname_amaps_out,fname_phg_act_tables,n_bins,img_size,vox_size);
+    fclose(fid_log); %close before saving because SaveImg2Amp contains close all command
+    SaveImg2Amap(fname_amaps_in,fname_amaps_out,fname_phg_act_tables,n_bins,img_size,vox_size);   
+    fid_log = fopen(fname_log, 'a+'); % reopen after
     
-    disp(sprintf(fid_log, 'amap_in: %s\n', fname_amaps_in));
-    disp(sprintf(fid_log, 'amap_out: %s\n', fname_amaps_out));
-    disp(sprintf(fid_log, 'amap_in: %s\n', fname_amaps_in));
-       
     cd(sprintf('%s', scripts_dir));
-    
+
     fprintf(fid_log, 'creating phg_params file for each chopped frame...\n'); disp('creating phg_params file for each chopped frame.');
     % create a phg_params file for each chopped frame
     for k = 1:num_threads_per_frame
@@ -289,6 +300,9 @@ for iter = 1 : handles.osem_iter
 
     fname_phg_sh = sprintf('%s/f%d/run_f%d.sh',dir_phg_params,iter,iter);
     fid_phg_sh = fopen(fname_phg_sh,'w');
+    cmd_chmod = ['chmod 775 ', fname_phg_sh]; 
+    system(cmd_chmod); 
+    pause(0.1);
     fprintf(fid_phg_sh,'%s\n','#!/bin/bash');
     fprintf(fid_phg_sh,'\n');
     fprintf(fid_phg_sh,'%s%d\n','iter_num=',iter);
@@ -327,6 +341,7 @@ for iter = 1 : handles.osem_iter
 
     % copy everything to sim node 001
 
+    fprintf(fid_log, 'copying to sim node to run simulation \n'); disp('copying to sim node to run simulation');
     cmd_dir_umap = ['scp -r ', dir_umap, ' ', user, '@', server_name, ':', dir_umap]; 
     system(cmd_dir_umap);
     pause(0.1);
@@ -344,15 +359,144 @@ for iter = 1 : handles.osem_iter
     pause(0.1);
 
     
- fprintf(fid_log, 'Starting simulations on server node sim-001. This may take a while...\n'); disp('Starting simulations on server node sim-001. This may take a while...');
-   
+    % run simulation script on server
+    fprintf(fid_log, 'Starting simulations on server node sim-001. This may take a while...\n'); disp('Starting simulations on server node sim-001. This may take a while...');
+    
+    cmd_cd = ['ssh ', user, '@', server_name, ' ', '"cd ', sprintf('%s/f%d',dir_phg_params,iter) , '; '];
+    fname_phg_sh = sprintf('%s/f%d/run_f%d.sh"',dir_phg_params, iter, iter) % 0-index (i-1)
+    cmd = [cmd_cd, 'source ', fname_phg_sh];
+    %system(cmd);    
+    % system should wait until bash script is done.
+    
+    % copy files from sim node to recon node
+    fprintf(fid_log, 'copying files from sim node to recon node...\n'); disp('copying files from sim node to recon node...');
+    cmd_rsync = ['rsync -arvu ', user, '@', server_name, ':', dir_hist, '/ ', dir_hist, '/ '];
+    system(cmd_rsync);
+    pause(0.1);
+    cmd_rsync = ['rsync -arvu ', user, '@', server_name, ':', dir_umap, '/ ', dir_umap, '/ '];
+    system(cmd_rsync);
+    pause(0.1);
+    cmd_rsync = ['rsync -arvu ', user, '@', server_name, ':', dir_amaps_out, '/ ', dir_amaps_out, '/ '];
+    system(cmd_rsync);
+    pause(0.1);
+    cmd_rsync = ['rsync -arvu ', user, '@', server_name, ':', dir_phg_log, '/ ', dir_phg_log, '/ '];
+    system(cmd_rsync);
+    pause(0.1);
+    cmd_rsync = ['rsync -arvu ', user, '@', server_name, ':', dir_phg_params, '/ ', dir_phg_params, '/ '];
+    system(cmd_rsync);
+    pause(0.1);
+
+    
+    % then delete everything from the server node!
+    % FIXME
+    cmd_rm = ['ssh ', user, '@', server_name, ' ', '"rm -r ', dir_base, '"'];
+    fprintf(fid_log, 'done removing simulation files from sim node: %s\n', cmd_rm); disp('done removing simulation files from sim node...');
+    system(cmd_rm);
+    pause(0.1);
     
     
+    %% conversion and listmode decoding
+
+% convert history files to list-mode data
+
+    fprintf(fid_log, 'converting history files to .lm files\n'); disp('Converting history files to .lm files...');
+    for k = 1:num_threads_per_frame
+        cmd = sprintf('%s %s/f%d/f%d_part%02d.hist.%d %s/f%d/f%d_part%02d.%d',bin_hist2lm, dir_hist,iter,iter,k-1,iter,dir_hist,iter,iter,k-1,iter); 
+        system(cmd);
+    end
+
+% concatenate lm files
+
+    fprintf('concatenating trues.lm files\n'); disp('concatenating trues.lm files...');
+    cmd = sprintf('cat %s/f%d/*.%d_trues.lm > %s/f%d/f%d.%d_trues.lm',dir_hist,iter,iter,dir_hist,iter,iter,iter);
+    system(cmd);
+
+    fprintf('concatenating scatters.lm files\n'); disp('Concatenating scatters.lm files...');
+    cmd = sprintf('cat %s/f%d/*.%d_scatters.lm > %s/f%d/f%d.%d_scatters.lm',dir_hist,iter,iter,dir_hist,iter,iter,iter);
+    system(cmd);
+
+% convert lm to sino: run_lm2blocksino.sh
+
+    fprintf('converting trues from list-mode to sinogram\n'); disp('Converting trues from list-mode to sinogram...');
+    cd(sprintf('%s/f%d',dir_hist,iter));
+    cmd = sprintf('%s f%d.%d_trues.lm f%d.%d_trues.sino4d %s', bin_lm2blocksino, iter, iter, iter, iter, fname_lut)
+    system(cmd);
+
+    fprintf('converting scatters from list-mode to sinogram\n'); disp('Converting scatters from list-mode to sinogram...');
+    cd(sprintf('%s/f%d',dir_hist,iter));
+    cmd = sprintf('%s f%d.%d_scatters.lm f%d.%d_scatters.sino4d %s', bin_lm2blocksino, iter, iter, iter, iter, fname_lut)
+    system(cmd);
+    
+% sum block sinograms
+
+    fprintf('summing block sinograms\n'); disp('Summing block sinograms...');
+    basename_exp = [" "," "];
+    basename_exp(1) = sprintf('%s/%s/block_sino_f%d_randoms', handles.server_recon_data_dir, outfolder_server_temp, frame_num);
+    basename_exp(2) = sprintf('%s/%s/block_sino_f%d_prompts', handles.server_recon_data_dir, outfolder_server_temp, frame_num);
+    img_size = [91,60,112,112];
+    for f = 1:2
+        str = sprintf('Now summing:\n%s\n', basename_exp(f));
+        disp(str);
+        fprintf(fid_log, str);
+        fname_out = strcat(basename_exp(f),'.raw');
+        fid_tmp = fopen(fname_out, 'w');
+
+        data_out = zeros(img_size);
+        for i = 1:8
+            fprintf(fid_log, 'processing file %d\n', i); fprintf('processing file %d\n', i);
+            fname_in = strcat(basename_exp(f),sprintf('.%d.raw',i));
+            fid_in=fopen(fname_in);
+            data_in = fread(fid_in,'double');
+            data_in = reshape(data_in,img_size);
+            data_out = data_out + data_in;
+            fclose(fid_in);
+        end
+        fwrite(fid_tmp, data_out,'double');
+    end
+    fclose(fid_tmp);
+    disp('done');
+
+    
+% get prompts minus delayed
+    fprintf(fid_log, 'getting prompt-delay sinogram file\n'); disp('Getting prompt-delay sinogram file');
+
+    basename_delay = basename_exp(1);
+    basename_prompt = basename_exp(2);
+    fname_pd = sprintf('%s%s', basename_delay(1:strfind(basename_delay, 'block_sino_f')-1), 'block_sino_f', frame_num, '_pd.raw');
+
+    fid_p = fopen(basename_prompt);
+    fid_d = fopen(basename_delay);
+    data_prompt = fread(fid_p,'double');
+    data_delay = fread(fid_d,'double');
+
+    data_pd = data_prompt - data_delay;
+
+    fid_pd = fopen(fname_pd, 'w');
+    fwrite(fid_pd,data_pd,'double');
+
+    fclose(fid_p);
+    fclose(fid_d);
+    fclose(fid_pd);
+    disp('done');
     
     
+% scaling sinograms
+    fprintf(fid_log, 'scaling sinograms\n'); disp('scaling sinograms');
+    fname_sino_scaled = sinogram_scaling(iter, fname_pd, dir_base);
+
+% copy scaled sino to lm decoder folder
+    lm_recon_dir = [handles.install_dir_server, '/read_lm'];
+    cmd_cp = ['cp ', fname_sino_scaled, ' ', lm_recon_dir, '/lut/f00000_scatters_scaled.sino4d']; 
+    fprintf('copying files to lm decoder directory:\n%s\n', cmd_cp); disp('copying files to lm decoder directory');
+        
+% re-run the read_lm executable (recon parameter files already exist)
     
+% combine listmode
     
-    
+
+% ALTERNATIVELY
+% creade updated version of the add_fac file using a new executable. 
+
 end % for loop over iterations
 
         
@@ -364,8 +508,13 @@ end % for loop over iterations
 % v COPY NOT RENAME output file from recon: 1) img_guess_next_iter_fX and 2) handles.fname_recon, '_f', num2str(handles.reconFrames(kk)), '.intermediate.ITERATION_NUM
 % v calculate number to simulate from lm file and take 10 times as many, but at least 1bn (1e9)
 % v only run simulation if current iteration number is smaller than handles.osem_iter
-% - invoke simulation and conversion and read lm and everything
-% - clean up simualtion directory on sim node at the end of each iteration!
+% v invoke simulation 
+% v conversion
+% v scaling
+% - read lm 
+% v clean up simulation directory on sim node at the end of each iteration!
+% v rerun recon after last scatter estimate, passing NO IMAGE GUESS to the recon executable
+
 
 
 
@@ -373,13 +522,16 @@ end % for loop over iterations
 %% clean up
 %delete(handles_name); 
 pause(0.1); 
+
+
+
 fprintf(fid_log, 'done.');
-
-
 fclose(fid_log);
 quit;
 end % function 
 
+
+%%
 function name_nospace = remove_space_name(name_in)
     name_nospace = name_in; 
     for k = 1:length(name_in)
