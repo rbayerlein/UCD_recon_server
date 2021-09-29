@@ -55,6 +55,8 @@ bin_hist2lm = [install_dir, 'simset/data_processing/hist2lm/bin/hist2lm'];
 bin_lm2blocksino =[install_dir, 'simset/data_processing/lm2blocksino_old/bin/lm2blocksino'];
 bin_scatter_add_fac =[install_dir, 'simset/data_processing/scatter_add_fac/bin/scatter_add_fac'];
 
+AddScatter2AddFac = [handles.install_dir_server, '/scatter_correct/AddScatter2add_fac/bin/AddScatter2add_fac'];
+
 % LUT
 fname_lut = [bin_lm2blocksino(1:strfind(bin_lm2blocksino,'/bin')), 'include/index_blockpairs_transaxial_2x91x60_int16'];
 
@@ -91,20 +93,20 @@ for iter = 1 : handles.osem_iter
     end
     
     %start recon
-    cmd_recon = [handles.recon_path_server, 'lmrecon_tof  ',handles.server_recon_data_dir,'/', outfolder_server_temp,'/lmacc_scanner_parameter_f',num2str(frame_num),'.cfg &'];
-    msg = ['starting recon for iteration ', num2str(iter)];
-    fprintf(fid_log, '%s\n', msg); disp(msg);
-%     system(cmd_recon);
+    cmd_recon = [handles.recon_path_server, 'lmrecon_tof ',handles.server_recon_data_dir,'/', outfolder_server_temp,'/lmacc_scanner_parameter_f',num2str(frame_num),'.cfg &'];
+    msg = ['starting recon for iteration ', num2str(iter), '\n using command: "', cmd_recon, '"'];
+    fprintf(fid_log, msg); disp(msg);
+    system(cmd_recon);
     pause(0.1);
     
     % check if done and continue
     recon_file_name = [handles.server_recon_data_dir,'/', outfolder_server_temp, '/lmrecon_output_f', num2str(frame_num), '.intermediate.1'];
-    msg = ['checking if done: %s', recon_file_name];
+    msg = ['checking if done: ', recon_file_name];
     fprintf(fid_log, '%s\n', msg); disp(msg);
     
     not_done = true;
     waitcounter=0; % just for control
-    waittime = 5.0;
+    waittime = 15.0;
     while not_done  
         msg = ['Estimated time elapsed since start: ', num2str(waitcounter*waittime)];
         fprintf(fid_log, '%s\n', msg); disp(msg);
@@ -115,7 +117,7 @@ for iter = 1 : handles.osem_iter
             disp('recon file exists. continue with next step...');
         end
         waitcounter = waitcounter+1;
-        pause(waittime);    % wait 5 seconds then look again
+        pause(waittime);    % wait for <waittime> seconds, then look again
     end
         
     % copy recon output files 
@@ -361,12 +363,21 @@ for iter = 1 : handles.osem_iter
     
     % run simulation script on server
     fprintf(fid_log, 'Starting simulations on server node sim-001. This may take a while...\n'); disp('Starting simulations on server node sim-001. This may take a while...');
-    
+    pid_fname = sprintf('%s/f%d/pid',dir_phg_log,iter); % to save the process id
     cmd_cd = ['ssh ', user, '@', server_name, ' ', '"cd ', sprintf('%s/f%d',dir_phg_params,iter) , '; '];
-    fname_phg_sh = sprintf('%s/f%d/run_f%d.sh"',dir_phg_params, iter, iter) % 0-index (i-1)
+    fname_phg_sh = sprintf('%s/f%d/run_f%d.sh & \n pid=$! \necho $pid > %s"',dir_phg_params, iter, iter, pid_fname);
     cmd = [cmd_cd, 'source ', fname_phg_sh];
-    %system(cmd);    
+    msg = ['(command used: ', cmd, ')'];
+    fprintf(msg); disp(msg);
+    system(cmd);    
     % system should wait until bash script is done.
+   
+    
+    % HERE, CREATE A TOOL THAT CHECKS FOR THE PROGRESS OF THE SIMULATION
+    % AND KILLS IT IF STUCK AND RESTARTS IT IF NECESSARY
+    % can use kill -9 PID
+    % FIXME
+    
     
     % copy files from sim node to recon node
     fprintf(fid_log, 'copying files from sim node to recon node...\n'); disp('copying files from sim node to recon node...');
@@ -387,8 +398,7 @@ for iter = 1 : handles.osem_iter
     pause(0.1);
 
     
-    % then delete everything from the server node!
-    % FIXME
+% then delete everything from the server node!
     cmd_rm = ['ssh ', user, '@', server_name, ' ', '"rm -r ', dir_base, '"'];
     fprintf(fid_log, 'done removing simulation files from sim node: %s\n', cmd_rm); disp('done removing simulation files from sim node...');
     system(cmd_rm);
@@ -419,12 +429,12 @@ for iter = 1 : handles.osem_iter
 
     fprintf('converting trues from list-mode to sinogram\n'); disp('Converting trues from list-mode to sinogram...');
     cd(sprintf('%s/f%d',dir_hist,iter));
-    cmd = sprintf('%s f%d.%d_trues.lm f%d.%d_trues.sino4d %s', bin_lm2blocksino, iter, iter, iter, iter, fname_lut)
+    cmd = sprintf('%s f%d.%d_trues.lm f%d.%d_trues.sino4d %s', bin_lm2blocksino, iter, iter, iter, iter, fname_lut);
     system(cmd);
 
     fprintf('converting scatters from list-mode to sinogram\n'); disp('Converting scatters from list-mode to sinogram...');
     cd(sprintf('%s/f%d',dir_hist,iter));
-    cmd = sprintf('%s f%d.%d_scatters.lm f%d.%d_scatters.sino4d %s', bin_lm2blocksino, iter, iter, iter, iter, fname_lut)
+    cmd = sprintf('%s f%d.%d_scatters.lm f%d.%d_scatters.sino4d %s', bin_lm2blocksino, iter, iter, iter, iter, fname_lut);
     system(cmd);
     
 % sum block sinograms
@@ -485,22 +495,25 @@ for iter = 1 : handles.osem_iter
     fname_sino_scaled = sinogram_scaling(iter, fname_pd, dir_base);
 
 % copy scaled sino to lm decoder folder
-    lm_recon_dir = [handles.install_dir_server, '/read_lm'];
-    cmd_cp = ['cp ', fname_sino_scaled, ' ', lm_recon_dir, '/lut/f00000_scatters_scaled.sino4d']; 
-    fprintf('copying files to lm decoder directory:\n%s\n', cmd_cp); disp('copying files to lm decoder directory');
-        
-% re-run the read_lm executable (recon parameter files already exist)
+%     lm_recon_dir = [handles.install_dir_server, '/read_lm'];
+%     cmd_cp = ['cp ', fname_sino_scaled, ' ', lm_recon_dir, '/lut/f00000_scatters_scaled.sino4d']; 
+%     fprintf('copying files to lm decoder directory:\n%s\n', cmd_cp); disp('copying files to lm decoder directory');
     
-% combine listmode
     
-
-% ALTERNATIVELY
-% creade updated version of the add_fac file using a new executable. 
+% create updated add_fac file
+    fprintf(fid_log, 'creating updated add_fac file with scatter data\n'); disp('creating updated add_fac file with scatter data');
+    % "usage: " << argv[0] << " [lm_folder_name] " << " [scaled_sino] " << " [user_name] " << " [index_blockpairs_transaxial_2x91x60_int16] " << " [nc_file]"
+    nc_file = [handles.path_choose_server, handles.fname_choose_base, '1.nc'];
+    cmd_as2af = sprintf('%s %s %s %s %s', AddScatter2AddFac, fname_sino_scaled, user, fname_lut, nc_file);
+    fprintf(fid_log, 'command: %s\n', cmd_as2af);
+    system(cmd_as2af);
+    pause(0.1);
+    
 
 end % for loop over iterations
 
-        
-    
+
+
 %% sketch for main program
 % v for loop
 % v run recon by invoking skript run_lmrecon in the outfolder_server_temp
