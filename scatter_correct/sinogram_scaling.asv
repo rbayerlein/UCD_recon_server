@@ -1,5 +1,4 @@
-function [fname_s_scaled] = sinogram_scaling(iteration_num, fname_pd, simulation_dir)
-
+function [fname_s_scaled] = sinogram_scaling(iteration_num, fname_pd, simulation_basename)
 %% user-configurable paramters
 
 data_type_pd = 'double';
@@ -8,11 +7,11 @@ data_type_s = 'double';
 
 % fname_pd = '/mnt/ssd/rbayerlein/explorer/recon_data_temp/phantom_6beds_78rings_from188_34rings_overlap_220_4it_scatter_corr_20210916/block_sino_f0_pd.raw';
 % basename_ts = '/mnt/data/rbayerlein/simset/phantom_20210916_1e10_after_crash_fix_3rd_to_4th_iteration/history/f00000'
-basename_ts = [simulation_dir, '/history/f', num2str(iteration_num)];
+basename_ts = simulation_basename
 basename_scaled = ['f', num2str(iteration_num), '_scatters'];
 
-fname_t = [basename_ts, '/f', num2str(iteration_num), '.', num2str(iteration_num), '_trues.sino4d'];
-fname_s = [basename_ts, '/f', num2str(iteration_num), '.', num2str(iteration_num), '_scatters.sino4d'];
+fname_t = [basename_ts, '_trues.sino4d'];
+fname_s = [basename_ts,num), '_scatters.sino4d'];
 
 % use one of the other setup for mask
 
@@ -198,7 +197,7 @@ end
 
 %% plot
 
-figure(); subplot(1,2,1); imshow(x_optimal,[0,max(x_optimal,[],'all')],'InitialMagnification','fit'); colorbar; ylabel('AxBlkA'); xlabel('AxBlkB'); title('4-D block sinogram scaling factors'); set(gca,'FontSize',11,'FontWeight','bold');
+% figure(); subplot(1,2,1); imshow(x_optimal,[0,max(x_optimal,[],'all')],'InitialMagnification','fit'); colorbar; ylabel('AxBlkA'); xlabel('AxBlkB'); title('4-D block sinogram scaling factors'); set(gca,'FontSize',11,'FontWeight','bold');
 
 % figure(); imshow(x_optimal_ssrb,[0,max(x_optimal,[],'all')],'InitialMagnification','fit'); colorbar; ylabel('AxBlkA'); xlabel('AxBlkB'); title('SSRB block sinogram scaling factors'); set(gca,'FontSize',11,'FontWeight','bold');
 % 

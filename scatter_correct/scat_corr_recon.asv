@@ -22,11 +22,21 @@ fprintf(fid_log, 'done reading in parameters from handler\n');
 fprintf(fid_log, 'starting scatter corrected list-mode reconstruction\n'); disp('starting scatter corrected list-mode reconstruction');
 
 %% input parameters
+user = 'rbayerlein';
+server_name = 'exp-sim-001'; %#ok<NASGU>
+
+use_sim_node = false;
+if use_sim_node
+    msg = ['using ', server_name, ' to run simulations.']; %#ok<UNRCH>
+    fprintf(fid_log, '%s\n', msg); disp(msg);
+end
+
+currentFolder = pwd;
+fprintf(fid_log, 'directory of scatter correction script: \n%s\n', currentFolder); disp(currentFolder);
+
 use_scat_corr=handles.scatter_onoff.Value;
 fprintf(fid_log, 'correct for scatter: %d (should be 1, otherwise this script should not have been invoked!)\n', double(use_scat_corr));
 
-user = 'rbayerlein';
-server_name = 'exp-sim-001';
 
 %simset install dir
 install_dir = '/home/rbayerlein/code/Recon/scatter_correction/';    % indepentent of handler file
@@ -53,7 +63,7 @@ vox_size = [2.85,2.85,2.85]; % mm
 bin_phg = [install_dir, 'simset/2.9.2/bin/phg'];
 bin_hist2lm = [install_dir, 'simset/data_processing/hist2lm/bin/hist2lm'];
 bin_lm2blocksino =[install_dir, 'simset/data_processing/lm2blocksino_old/bin/lm2blocksino'];
-bin_scatter_add_fac =[install_dir, 'simset/data_processing/scatter_add_fac/bin/scatter_add_fac'];
+%bin_scatter_add_fac =[install_dir, 'simset/data_processing/scatter_add_fac/bin/scatter_add_fac']; %#ok
 
 AddScatter2AddFac = [handles.install_dir_server, '/scatter_correct/AddScatter2add_fac/bin/AddScatter2add_fac'];
 
@@ -70,10 +80,36 @@ n_bins = 22100; % number of available bins - same as number of materials
 num_threads_avail = 44;    % actually it's 48 but should leave a few empty to prevent lagging. 
 num_threads_per_frame = num_threads_avail;
 
+%% check if scatter correction data already exist
+dir_scatter_data = [handles.study_dir_server, 'UCD/Scatter_Data'];
+fprintf(fid_log, 'checking if scatter data exist in folder %s\n', dir_scatter_data);
+fprintf('checking if scatter data exist in folder %s\n', dir_scatter_data);
+
+scatter_data_exist = true;
+
+if exist(dir_scatter_data, 'dir')
+    %check if sino4d file exists
+    dir_struct = dir(fullfile(dir_scatter_data), '*.sino4d');
+    if numel(dir_struct) == 0
+        scatter_data_exist = false;
+    end
+else
+    scatter_data_exist = false;
+end
+
+if ~scatter_data_exist
+    fprintf(fid_log, 'No prior scatter correction data found. Will create new data with simset (takes 4h per iteration!!)');
+    disp('No prior scatter correction data found. Will create new data with simset (takes 4h per iteration!!)');
+    pause(5.0);
+else
+    fprintf(fid_log, 'Successfully retrieved prior scatter correction data in folder %s\n', dir_scatter_data);
+    fprintf('Successfully retrieved prior scatter correction data in folder %s\n', dir_scatter_data);
+end
 
 
 %% main program
 
+quit;%====================================================================================================================================REMOVE THIS LATER!!!
 
 for iter = 1 : handles.osem_iter
 %% recon part
@@ -81,19 +117,14 @@ for iter = 1 : handles.osem_iter
     %check if last recon and if so, delete image guess to run recon without
     %guess and set number of iterations from 1 to handles.osem_iter
     if iter == handles.osem_iter
-        cmd_sed = ['sed -i "s/iteration_setting = ', num2str(handles.osem_subs),', 1, 1/iteration_setting = ',num2str(handles.osem_subs), ' 1, ', num2str(handles.osem_iter), '/g" ', handles.server_recon_data_dir,'/', outfolder_server_temp, '/lmacc_scanner_parameter_f', num2str(frame_num), '.cfg'];
+        cmd_sed = ['sed -i "s/iteration_setting = ', num2str(handles.osem_subs),', 1, 1/iteration_setting = ',num2str(handles.osem_subs), ', 1, ', num2str(handles.osem_iter), '/g" ', handles.server_recon_data_dir,'/', outfolder_server_temp, '/lmacc_scanner_parameter_f', num2str(frame_num), '.cfg'];
         fprintf(fid_log, 'replacing number of iterations in lmacc config file: \n%s\n', cmd_sed); disp('replacing number of iterations in lmacc config file');
         system(cmd_sed);
-        pause(0.1);
-
-        cmd_rm_guess = ['rm ', handles.server_recon_data_dir,'/', outfolder_server_temp, '/img_guess_next_iter_f', num2str(frame_num)];
-        fprintf(fid_log, 'removing image guess:\n%s\n', cmd_rm_guess); disp('removing image guess');
-        system(cmd_rm_guess);
         pause(0.1);
     end
     
     %start recon
-    cmd_recon = [handles.recon_path_server, 'lmrecon_tof  ',handles.server_recon_data_dir,'/', outfolder_server_temp,'/lmacc_scanner_parameter_f',num2str(frame_num),'.cfg &'];
+    cmd_recon = [handles.recon_path_server, 'lmrecon_tof ',handles.server_recon_data_dir,'/', outfolder_server_temp,'/lmacc_scanner_parameter_f',num2str(frame_num),'.cfg &'];
     msg = ['starting recon for iteration ', num2str(iter), '\n using command: "', cmd_recon, '"'];
     fprintf(fid_log, msg); disp(msg);
     system(cmd_recon);
@@ -106,7 +137,7 @@ for iter = 1 : handles.osem_iter
     
     not_done = true;
     waitcounter=0; % just for control
-    waittime = 5.0;
+    waittime = 15.0;
     while not_done  
         msg = ['Estimated time elapsed since start: ', num2str(waitcounter*waittime)];
         fprintf(fid_log, '%s\n', msg); disp(msg);
@@ -117,7 +148,7 @@ for iter = 1 : handles.osem_iter
             disp('recon file exists. continue with next step...');
         end
         waitcounter = waitcounter+1;
-        pause(waittime);    % wait 5 seconds then look again
+        pause(waittime);    % wait for <waittime> seconds, then look again
     end
         
     % copy recon output files 
@@ -168,14 +199,18 @@ for iter = 1 : handles.osem_iter
     fprintf(fid_log, 'dir_base: %s\n', dir_base); disp(dir_base);
 
     % create main folder structures
-    if not(isfolder(dir_base))
-        CreateFolder(dir_base);
-    end
+     if not(isfolder(dir_base))
+         CreateFolder(dir_base);
+     end
+
+    
     % create on sim node
-    cmd_0 = ['ssh ', user, '@', server_name, ' "mkdir ', dir_base,'"']; 
-    system(cmd_0);
-    pause(0.1);
-    fprintf(fid_log, 'created folder on sim node: \n%s\n', cmd_0);
+    if use_sim_node
+        cmd_0 = ['ssh ', user, '@', server_name, ' "mkdir ', dir_base,'"'];  %#ok<UNRCH>
+        system(cmd_0);
+        pause(0.1);
+        fprintf(fid_log, 'created folder on sim node: \n%s\n', cmd_0);
+    end
     
     dir_umap = strcat(dir_base,'/umap');
     dir_amaps_out = strcat(dir_base,'/amap');
@@ -183,11 +218,12 @@ for iter = 1 : handles.osem_iter
     dir_hist = strcat(dir_base,'/history');
     dir_phg_log = strcat(dir_base,'/phg_log');
 
-    CreateFolder(dir_umap);
-    CreateFolder(dir_amaps_out);
-    CreateFolder(dir_phg_params);
-    CreateFolder(dir_hist);
-    CreateFolder(dir_phg_log);
+     CreateFolder(dir_umap);
+     CreateFolder(dir_amaps_out);
+     CreateFolder(dir_phg_params);
+     CreateFolder(dir_hist);
+     CreateFolder(dir_phg_log);
+
 
     fprintf(fid_log, 'Created simset output sub-folders\n');
     
@@ -201,9 +237,9 @@ for iter = 1 : handles.osem_iter
     s = dir(lm_filename);
     num_to_simulate = double(s.bytes);   % simulate 10 times as may as in lm file. an event has 10 byte. So file size equals num_to_simulate.
     if num_to_simulate < 1e8
-        num_to_simulate = 1e8;
+        num_to_simulate = 1e8; %100m
     elseif num_to_simulate > 5e10
-        num_to_simulate = 5e10;
+        num_to_simulate = 5e10; %50b
     end
     fprintf(fid_log, 'lm file size (%s): %1.1f bytes\n', lm_filename, s.bytes);
     fprintf(fid_log, 'number of events to simulate: %d\n', num_to_simulate);
@@ -259,6 +295,7 @@ for iter = 1 : handles.osem_iter
     fprintf(fid_log, 'fname_phg_act_tables: %s\n', fname_phg_act_tables);
     
     fclose(fid_log); %close before saving because SaveImg2Amp contains close all command
+    pause(0.1);
     SaveImg2Amap(fname_amaps_in,fname_amaps_out,fname_phg_act_tables,n_bins,img_size,vox_size);   
     fid_log = fopen(fname_log, 'a+'); % reopen after
     
@@ -343,33 +380,53 @@ for iter = 1 : handles.osem_iter
 
     % copy everything to sim node 001
 
-    fprintf(fid_log, 'copying to sim node to run simulation \n'); disp('copying to sim node to run simulation');
-    cmd_dir_umap = ['scp -r ', dir_umap, ' ', user, '@', server_name, ':', dir_umap]; 
-    system(cmd_dir_umap);
-    pause(0.1);
-    cmd_dir_amaps_out = ['scp -r ', dir_amaps_out, ' ', user, '@', server_name, ':', dir_amaps_out]; 
-    system(cmd_dir_amaps_out);
-    pause(0.1);
-    cmd_dir_phg_params = ['scp -r ', dir_phg_params, ' ', user, '@', server_name, ':', dir_phg_params]; 
-    system(cmd_dir_phg_params);
-    pause(0.1);
-    cmd_dir_hist = ['scp -r ', dir_hist, ' ', user, '@', server_name, ':', dir_hist]; 
-    system(cmd_dir_hist);
-    pause(0.1);
-    cmd_dir_phg_log = ['scp -r ', dir_phg_log, ' ', user, '@', server_name, ':', dir_phg_log]; 
-    system(cmd_dir_phg_log);
+    if use_sim_node
+        fprintf(fid_log, 'copying scripts and tables to sim node to run simulation \n'); disp('copying to sim node to run simulation'); %#ok<UNRCH>
+        cmd_dir_umap = ['scp -rp ', dir_umap, ' ', user, '@', server_name, ':', dir_umap]; 
+        system(cmd_dir_umap);
+        pause(0.1);
+        cmd_dir_amaps_out = ['scp -rp ', dir_amaps_out, ' ', user, '@', server_name, ':', dir_amaps_out]; 
+        system(cmd_dir_amaps_out);
+        pause(0.1);
+        cmd_dir_phg_params = ['scp -rp ', dir_phg_params, ' ', user, '@', server_name, ':', dir_phg_params]; 
+        system(cmd_dir_phg_params);
+        pause(0.1);
+        cmd_dir_hist = ['scp -rp ', dir_hist, ' ', user, '@', server_name, ':', dir_hist]; 
+        system(cmd_dir_hist);
+        pause(0.1);
+        cmd_dir_phg_log = ['scp -rp ', dir_phg_log, ' ', user, '@', server_name, ':', dir_phg_log]; 
+        system(cmd_dir_phg_log);
+        pause(0.1);
+    end
+    
+% run simulation
+    %execute folder size monitor script (preliminary!)
+    cmd_mon = [handles.install_dir_server, '/scatter_correct/folderSizeMonitor.sh ', sprintf('%s/f%d',dir_hist,iter), ' &'];
+    fprintf(fid_log, 'running folder monitor script:\n%s\n', cmd_mon); disp('running folder monitor script'); disp(cmd_mon);
+    system(cmd_mon);
+
     pause(0.1);
 
+    % run simulation
+    fprintf(fid_log, 'Starting simulations. This may take a while...\n'); disp('Starting simulations. This may take a while...');
+    pid_fname = sprintf('%s/f%d/pid',dir_phg_log,iter); %#ok<NASGU> % to save the process id
     
-    % run simulation script on server
-    fprintf(fid_log, 'Starting simulations on server node sim-001. This may take a while...\n'); disp('Starting simulations on server node sim-001. This may take a while...');
-    pid_fname = sprintf('%s/f%d/pid',dir_phg_log,iter); % to save the process id
-    cmd_cd = ['ssh ', user, '@', server_name, ' ', '"cd ', sprintf('%s/f%d',dir_phg_params,iter) , '; '];
-    fname_phg_sh = sprintf('%s/f%d/run_f%d.sh & \n pid=$! \necho $pid > %s"',dir_phg_params, iter, iter, pid_fname);
-    cmd = [cmd_cd, 'source ', fname_phg_sh];
+    if use_sim_node        % run simulation script on server     
+        cmd_cd = ['ssh ', user, '@', server_name, ' ', '"cd ', sprintf('%s/f%d',dir_phg_params,iter) , '; ']; %#ok<UNRCH>
+%         fname_phg_sh = sprintf('%s/f%d/run_f%d.sh & pgrep -f script.sh > %s"',dir_phg_params, iter, iter, pid_fname);
+        fname_phg_sh = sprintf('%s/f%d/run_f%d.sh "',dir_phg_params, iter, iter);
+    else
+        cmd_cd = ['cd ', sprintf('%s/f%d',dir_phg_params,iter) , '; '];
+%         fname_phg_sh = sprintf('%s/f%d/run_f%d.sh & pgrep -f script.sh > %s',dir_phg_params, iter, iter, pid_fname);
+        fname_phg_sh = sprintf('%s/f%d/run_f%d.sh ',dir_phg_params, iter, iter);
+
+    end
+
+    cmd = [cmd_cd, fname_phg_sh];
     msg = ['(command used: ', cmd, ')'];
     fprintf(msg); disp(msg);
-    system(cmd);    
+    system(cmd);
+
     % system should wait until bash script is done.
    
     
@@ -380,30 +437,30 @@ for iter = 1 : handles.osem_iter
     
     
     % copy files from sim node to recon node
-    fprintf(fid_log, 'copying files from sim node to recon node...\n'); disp('copying files from sim node to recon node...');
-    cmd_rsync = ['rsync -arvu ', user, '@', server_name, ':', dir_hist, '/ ', dir_hist, '/ '];
-    system(cmd_rsync);
-    pause(0.1);
-    cmd_rsync = ['rsync -arvu ', user, '@', server_name, ':', dir_umap, '/ ', dir_umap, '/ '];
-    system(cmd_rsync);
-    pause(0.1);
-    cmd_rsync = ['rsync -arvu ', user, '@', server_name, ':', dir_amaps_out, '/ ', dir_amaps_out, '/ '];
-    system(cmd_rsync);
-    pause(0.1);
-    cmd_rsync = ['rsync -arvu ', user, '@', server_name, ':', dir_phg_log, '/ ', dir_phg_log, '/ '];
-    system(cmd_rsync);
-    pause(0.1);
-    cmd_rsync = ['rsync -arvu ', user, '@', server_name, ':', dir_phg_params, '/ ', dir_phg_params, '/ '];
-    system(cmd_rsync);
-    pause(0.1);
+    if use_sim_node
+        fprintf(fid_log, 'copying files from sim node to recon node...\n'); disp('copying files from sim node to recon node...'); %#ok<UNRCH>
+        cmd_rsync = ['rsync -arvu ', user, '@', server_name, ':', dir_hist, '/ ', dir_hist, '/ '];
+        system(cmd_rsync);
+        pause(0.1);
+        cmd_rsync = ['rsync -arvu ', user, '@', server_name, ':', dir_umap, '/ ', dir_umap, '/ '];
+        system(cmd_rsync);
+        pause(0.1);
+        cmd_rsync = ['rsync -arvu ', user, '@', server_name, ':', dir_amaps_out, '/ ', dir_amaps_out, '/ '];
+        system(cmd_rsync);
+        pause(0.1);
+        cmd_rsync = ['rsync -arvu ', user, '@', server_name, ':', dir_phg_log, '/ ', dir_phg_log, '/ '];
+        system(cmd_rsync);
+        pause(0.1);
+        cmd_rsync = ['rsync -arvu ', user, '@', server_name, ':', dir_phg_params, '/ ', dir_phg_params, '/ '];
+        system(cmd_rsync);
+        pause(0.1);
 
-    
-% then delete everything from the server node!
-    cmd_rm = ['ssh ', user, '@', server_name, ' ', '"rm -r ', dir_base, '"'];
-    fprintf(fid_log, 'done removing simulation files from sim node: %s\n', cmd_rm); disp('done removing simulation files from sim node...');
-    system(cmd_rm);
-    pause(0.1);
-    
+    % then delete everything from the server node!
+        cmd_rm = ['ssh ', user, '@', server_name, ' ', '"rm -r ', dir_base, '"'];
+        fprintf(fid_log, 'done removing simulation files from sim node: %s\n', cmd_rm); disp('done removing simulation files from sim node...');
+        system(cmd_rm);
+        pause(0.1);
+    end   
     
     %% conversion and listmode decoding
 
@@ -436,13 +493,24 @@ for iter = 1 : handles.osem_iter
     cd(sprintf('%s/f%d',dir_hist,iter));
     cmd = sprintf('%s f%d.%d_scatters.lm f%d.%d_scatters.sino4d %s', bin_lm2blocksino, iter, iter, iter, iter, fname_lut);
     system(cmd);
+    pause(0.1);
     
-% sum block sinograms
+% copy sinogram to study directory
+    cmd_cp_scat = sprintf('cp f%d.%d_scatters.sino4d %s', iter, iter, dir_scatter_data);
+    cmd_cp_true = sprintf('cp f%d.%d_trues.sino4d %s', iter, iter, dir_scatter_data);
+    system(cmd_cp_scat);
+    pause(0.1);
+    system(cmd_cp_true);
+    pause(0.1);
+    fprintf(fid_log, 'copying sinograms to study dir using commands \n%s\nand\n%s\n', cmd_cp_scat, cmd_cp_true);
+    fprintf('copying sinograms to study dir using commands \n%s\nand\n%s\n', cmd_cp_scat, cmd_cp_true);
+    
+% sum block sinograms from actual measurements!
 
     fprintf('summing block sinograms\n'); disp('Summing block sinograms...');
     basename_exp = [" "," "];
-    basename_exp(1) = sprintf('%s/%s/block_sino_f%d_randoms', handles.server_recon_data_dir, outfolder_server_temp, frame_num);
-    basename_exp(2) = sprintf('%s/%s/block_sino_f%d_prompts', handles.server_recon_data_dir, outfolder_server_temp, frame_num);
+    basename_exp(1) = sprintf('%s/block_sino_f%d_randoms', handles.lm_outfolder, frame_num);
+    basename_exp(2) = sprintf('%s/block_sino_f%d_prompts', handles.lm_outfolder, frame_num);
     img_size = [91,60,112,112];
     for f = 1:2
         str = sprintf('Now summing:\n%s\n', basename_exp(f));
@@ -462,20 +530,24 @@ for iter = 1 : handles.osem_iter
             fclose(fid_in);
         end
         fwrite(fid_tmp, data_out,'double');
+        fclose(fid_tmp);
     end
-    fclose(fid_tmp);
     disp('done');
 
     
 % get prompts minus delayed
     fprintf(fid_log, 'getting prompt-delay sinogram file\n'); disp('Getting prompt-delay sinogram file');
 
-    basename_delay = basename_exp(1);
-    basename_prompt = basename_exp(2);
-    fname_pd = sprintf('%s%s', basename_delay(1:strfind(basename_delay, 'block_sino_f')-1), 'block_sino_f', frame_num, '_pd.raw');
-
-    fid_p = fopen(basename_prompt);
-    fid_d = fopen(basename_delay);
+    basename_delay = [basename_exp{1}, '.raw'];
+    basename_prompt = [basename_exp{2}, '.raw'];
+    fname_pd = sprintf('%sblock_sino_f%d_pd.raw', basename_delay(1:strfind(basename_delay, 'block_sino_f')-1), frame_num);
+    
+    disp(basename_delay);
+    disp(basename_prompt);
+    disp(fname_pd);
+    
+    fid_p = fopen(basename_prompt, 'rb');
+    fid_d = fopen(basename_delay, 'rb');
     data_prompt = fread(fid_p,'double');
     data_delay = fread(fid_d,'double');
 
@@ -491,20 +563,27 @@ for iter = 1 : handles.osem_iter
     
     
 % scaling sinograms
+    cd(sprintf('%s', currentFolder));
     fprintf(fid_log, 'scaling sinograms\n'); disp('scaling sinograms');
-    fname_sino_scaled = sinogram_scaling(iter, fname_pd, dir_base);
-
-% copy scaled sino to lm decoder folder
-%     lm_recon_dir = [handles.install_dir_server, '/read_lm'];
-%     cmd_cp = ['cp ', fname_sino_scaled, ' ', lm_recon_dir, '/lut/f00000_scatters_scaled.sino4d']; 
-%     fprintf('copying files to lm decoder directory:\n%s\n', cmd_cp); disp('copying files to lm decoder directory');
+    
+    
+    
+    fname_sino_scaled_tmp = sinogram_scaling(iter, fname_pd, simulation_basename);
+    
+% move fname_sino_scaled_tmp to lm data folder
+    [FILEPATH,NAME,EXT] = fileparts(fname_sino_scaled_tmp);
+    fname_sino_scaled = [handles.lm_outfolder, NAME, EXT];
+    cmd_cp = ['cp ', fname_sino_scaled_tmp, ' ', fname_sino_scaled];
+    fprintf('copying sinogram to lm_outfolder using command %s\n', cmd_cp);
+    fprintf(fid_log, 'copying sinogram to lm_outfolder using command %s\n', cmd_cp);
     
     
 % create updated add_fac file
     fprintf(fid_log, 'creating updated add_fac file with scatter data\n'); disp('creating updated add_fac file with scatter data');
     % "usage: " << argv[0] << " [lm_folder_name] " << " [scaled_sino] " << " [user_name] " << " [index_blockpairs_transaxial_2x91x60_int16] " << " [nc_file]"
     nc_file = [handles.path_choose_server, handles.fname_choose_base, '1.nc'];
-    cmd_as2af = sprintf('%s %s %s %s %s', AddScatter2AddFac, fname_sino_scaled, user, fname_lut, nc_file);
+    lm_data_folder = [handles.server_recon_data_dir, '/', outfolder_server_temp];
+    cmd_as2af = sprintf('%s %s %s %s %s %s', AddScatter2AddFac, lm_data_folder, fname_sino_scaled, user, fname_lut, nc_file);
     fprintf(fid_log, 'command: %s\n', cmd_as2af);
     system(cmd_as2af);
     pause(0.1);
@@ -524,7 +603,7 @@ end % for loop over iterations
 % v invoke simulation 
 % v conversion
 % v scaling
-% - read lm 
+% v read lm 
 % v clean up simulation directory on sim node at the end of each iteration!
 % v rerun recon after last scatter estimate, passing NO IMAGE GUESS to the recon executable
 
@@ -545,7 +624,7 @@ end % function
 
 
 %%
-function name_nospace = remove_space_name(name_in)
+function name_nospace = remove_space_name(name_in) %#ok<DEFNU>
     name_nospace = name_in; 
     for k = 1:length(name_in)
         if strcmp(name_in(k), ' ')
