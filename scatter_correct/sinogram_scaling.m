@@ -7,7 +7,7 @@ data_type_s = 'double';
 
 % fname_pd = '/mnt/ssd/rbayerlein/explorer/recon_data_temp/phantom_6beds_78rings_from188_34rings_overlap_220_4it_scatter_corr_20210916/block_sino_f0_pd.raw';
 % basename_ts = '/mnt/data/rbayerlein/simset/phantom_20210916_1e10_after_crash_fix_3rd_to_4th_iteration/history/f00000'
-basename_ts = simulation_basename
+basename_ts = simulation_basename;
 basename_scaled = ['f', num2str(iteration_num), '_scatters'];
 
 fname_t = [basename_ts, '_trues.sino4d'];
@@ -37,10 +37,10 @@ n_ax_blk_per_unit = 14;
 
 % for plotting
 ssrb_i = 81; % 112;
-axAi = 31; %70; %30; % 39
-axBi = 31; %70; %30; % 39
-axAj = 59; %84;
-axBj = 7; %29;
+% axAi = 31; %70; %30; % 39
+% axBi = 31; %70; %30; % 39
+% axAj = 59; %84;
+% axBj = 7; %29;
 
 % adaptive ssrb
 cv_threshold = 0.1;
@@ -299,7 +299,7 @@ end
 
 %% write out
 
-[FILEPATH,NAME,EXT] = fileparts(fname_s);
+[FILEPATH,~,EXT] = fileparts(fname_s);
 fname_s_scaled = strcat(FILEPATH,'/',basename_scaled,'_scaled',EXT);
 % fname_s_scaled_ssrb = strcat(FILEPATH,'/',NAME,'_scaled_ssrb',EXT);
 % fname_s_scaled_adaptive = strcat(FILEPATH,'/',NAME,'_scaled_adaptive',EXT);

@@ -110,7 +110,7 @@ if scatter_data_exist
     for it = 1:20  % just try 20 iterations, it won't go higher if even that high
         temp_name_s = sprintf('%s/f%d.%d_scatters.sino4d', dir_scatter_data, it, it);
         temp_name_t = sprintf('%s/f%d.%d_trues.sino4d', dir_scatter_data, it, it);
-        if exist(temp_name_s, 'file') & exist(temp_name_t, 'file')
+        if exist(temp_name_s, 'file') && exist(temp_name_t, 'file')
             found_highest_iter = true;
             highest_iteration=it;
             scatter_data_file=temp_name_s;
@@ -124,8 +124,8 @@ if scatter_data_exist
         fprintf(fid_log, 'could not find highest scatter data file. \n');
         fprintf('could not find highest scatter data file. \n');
     else
-        fprintf(fid_log, 'found scatter data files: %s, and *trues.sino4d\n', scatter_data_file);
-        fprintf('found scatter data files: %s, and *trues.sino4d\n', scatter_data_file);
+        fprintf(fid_log, 'found scatter data files: %s and %s\n', scatter_data_file, trues_data_file);
+        fprintf('found scatter data files: %s and %s\n', scatter_data_file, trues_data_file);
     end
 end
 
@@ -202,11 +202,11 @@ if scatter_data_exist
 % scale scatter sinograms
 % scaling sinograms
     fprintf(fid_log, 'scaling sinograms\n'); disp('scaling sinograms');
-    simulation_basename = [dir_scatter_data, '/f', num2str(highest_iteration), '.', num2str(highest_iteration)]     %only hand over base name without '_scatters.sino4d'
+    simulation_basename = [dir_scatter_data, '/f', num2str(highest_iteration), '.', num2str(highest_iteration)];     %only hand over base name without '_scatters.sino4d'
     fname_sino_scaled_tmp = sinogram_scaling(highest_iteration, fname_pd, simulation_basename);
     
 % move fname_sino_scaled_tmp to lm data folder
-    [FILEPATH,NAME,EXT] = fileparts(fname_sino_scaled_tmp);
+    [~,NAME,EXT] = fileparts(fname_sino_scaled_tmp); % the ~ sign is a place holder, as that part of the file name will not be used later on
     fname_sino_scaled = [handles.lm_outfolder, NAME, EXT];
     cmd_cp = ['cp ', fname_sino_scaled_tmp, ' ', fname_sino_scaled];
     fprintf('copying sinogram to lm_outfolder using command %s\n', cmd_cp);
@@ -234,7 +234,7 @@ for iter = 1 : handles.osem_iter
 %% recon part
 
     if scatter_data_exist
-        iter = handles.osem_iter
+        iter = handles.osem_iter; %#ok<FXSET>
     end
 
     %check if last recon and if so, delete image guess to run recon without
@@ -244,6 +244,15 @@ for iter = 1 : handles.osem_iter
         fprintf(fid_log, 'replacing number of iterations in lmacc config file: \n%s\n', cmd_sed); disp('replacing number of iterations in lmacc config file');
         system(cmd_sed);
         pause(0.1);
+        % remove image guess if exists
+        fname_img_guess = [handles.server_recon_data_dir,'/', outfolder_server_temp, '/img_guess_next_iter_f', num2str(frame_num)];
+        if exist(fname_img_guess, 'file')
+            cmd_rm = ['rm ', fname_img_guess];
+            fprintf(fid_log, 'removing image guess %s\n', fname_img_guess);
+            fprintf('removing image guess %s\n', fname_img_guess);
+            system(cmd_rm);
+            pause(0.1);
+        end
     end
     
     %start recon
@@ -707,12 +716,12 @@ for iter = 1 : handles.osem_iter
     basename_prompt = [basename_exp{2}, '.raw'];
     fname_pd = sprintf('%sblock_sino_f%d_pd.raw', basename_delay(1:strfind(basename_delay, 'block_sino_f')-1), frame_num);
 
-    fprintf(fid_log, 'basename_delay: ', basename_delay);
-    fprintf(fid_log, 'basename_prompt: ', basename_prompt);
-    fprintf(fid_log, 'fname_pd: ', fname_pd);
-    fprintf('basename_delay: ', basename_delay);
-    fprintf('basename_prompt: ', basename_prompt);
-    fprintf('fname_pd: ', fname_pd);
+    fprintf(fid_log, 'basename_delay: %s', basename_delay);
+    fprintf(fid_log, 'basename_prompt: %s', basename_prompt);
+    fprintf(fid_log, 'fname_pd: %s', fname_pd);
+    fprintf('basename_delay: %s', basename_delay);
+    fprintf('basename_prompt: %s', basename_prompt);
+    fprintf('fname_pd: %s', fname_pd);
     
     % only perform calculation if file does not exist yet:
     if exist(fname_pd, 'file')
@@ -738,11 +747,11 @@ for iter = 1 : handles.osem_iter
 % scaling sinograms
     cd(sprintf('%s', currentFolder));
     fprintf(fid_log, 'scaling sinograms\n'); disp('scaling sinograms');
-    simulation_basename = [dir_hist, '/f', num2str(iter), '/f', num2str(iter), '.', num2str(iter),]     
+    simulation_basename = [dir_hist, '/f', num2str(iter), '/f', num2str(iter), '.', num2str(iter),];     
     fname_sino_scaled_tmp = sinogram_scaling(iter, fname_pd, simulation_basename);
     
 % move fname_sino_scaled_tmp to lm data folder
-    [FILEPATH,NAME,EXT] = fileparts(fname_sino_scaled_tmp);
+    [~,NAME,EXT] = fileparts(fname_sino_scaled_tmp);
     fname_sino_scaled = [handles.lm_outfolder, NAME, EXT];
     cmd_cp = ['cp ', fname_sino_scaled_tmp, ' ', fname_sino_scaled];
     fprintf('copying sinogram to lm_outfolder using command %s\n', cmd_cp);
