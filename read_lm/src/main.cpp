@@ -552,6 +552,8 @@ int main(int argc, char **argv) {
 	// ************		Load LUTs  ****************//
 	string fdir_code = "/home/rbayerlein/code/explorer-master/read_lm/lut/";
 
+// ================================ SCATTER CORRECTION (now implemented as separate executable AddScatter2add_fac) ==================================================
+/*
 	string scatter_sino_path = fdir_code;  
 	scatter_sino_path.append("f00000_scatters_scaled.sino4d"); 
 	ifstream scatter_sino_read; 
@@ -581,7 +583,9 @@ int main(int argc, char **argv) {
 	}
 	tof_wt_read.close();  
 	vector<double> tof_spectrum(129); 
+*/
 
+// ==================================================================================================================================================================
 
 	// open bank lut
 	int lutsum = 0;
@@ -1644,21 +1648,24 @@ int main(int argc, char **argv) {
 								}
 
 								rtemp = rtemp * (39.0625 / t_window);	// Average num of randoms per tof bin
-								
-								stemp = (float)scatter_sino[ind_block1]; // avg num scatters per block pair
-                                if (blkYa == blkYb) {
-									stemp =  stemp  /  (1.0  * (float) num_lor_blkpair);	// avg num scatters per lor
-								}   else {
-									stemp =  stemp  / ((float) num_lor_blkpair);  
-								}
-								if (abs(dout[4] < 64)) {
-					
-									stemp = stemp *tof_wt[dout[4]+64];
-								} else {
-									stemp = 0.0; 
-								}
-								stemp = stemp * nc_crys[crysaxA + 672*transcA] * nc_crys[crysaxB + 672*transcB]; 
-								rtemp =  rtemp +  stemp;	// add scatters and randoms 
+
+// ================================ SCATTER CORRECTION (now implemented as separate executable AddScatter2add_fac) ==================================================								
+//								stemp = (float)scatter_sino[ind_block1]; // avg num scatters per block pair
+//                              if (blkYa == blkYb) {
+//									stemp =  stemp  /  (1.0  * (float) num_lor_blkpair);	// avg num scatters per lor
+//								}   else {
+//									stemp =  stemp  / ((float) num_lor_blkpair);  
+//								}
+//								if (abs(dout[4] < 64)) {
+//					
+//									stemp = stemp *tof_wt[dout[4]+64];
+//								} else {
+//									stemp = 0.0; 
+//								}
+//								stemp = stemp * nc_crys[crysaxA + 672*transcA] * nc_crys[crysaxB + 672*transcB]; 
+//								rtemp =  rtemp +  stemp;	// add scatters and randoms 
+//
+//	================================================================================================================================================================							
 								rtemp = rtemp * mtemp;		// apply dead time and decay correction to scatters and randoms
 
 								//rtemp = rtemp * (nc_crys[crys1] / nc_mod[modA]) * (nc_crys[crys2] / nc_mod[modB]);
