@@ -89,34 +89,153 @@ scatter_data_exist = true;
 
 if exist(dir_scatter_data, 'dir')
     %check if sino4d file exists
-    dir_struct = dir(fullfile(dir_scatter_data), '*.sino4d');
+    dir_struct = dir(fullfile(dir_scatter_data, '*.sino4d'));
     if numel(dir_struct) == 0
         scatter_data_exist = false;
-    end
+    end 
 else
+    CreateFolder(dir_scatter_data); % to be filled with simset data later on
     scatter_data_exist = false;
 end
 
+% search for highest iteration number of scatter data in the
+% dir_scatter_data folder
+if scatter_data_exist
+    fprintf(fid_log, 'scatter data exist. trying to find highest existing iteration number in scatter data folder...\n');
+    fprintf('scatter data exist. trying to find highest existing iteration number in scatter data folder...\n');
+    found_highest_iter = false;
+    highest_iteration = 0;
+    scatter_data_file = ' ';
+    trues_data_file = ' ';
+    for it = 1:20  % just try 20 iterations, it won't go higher if even that high
+        temp_name_s = sprintf('%s/f%d.%d_scatters.sino4d', dir_scatter_data, it, it);
+        temp_name_t = sprintf('%s/f%d.%d_trues.sino4d', dir_scatter_data, it, it);
+        if exist(temp_name_s, 'file') & exist(temp_name_t, 'file')
+            found_highest_iter = true;
+            highest_iteration=it;
+            scatter_data_file=temp_name_s;
+            trues_data_file=temp_name_t;
+        else
+            break;
+        end    
+    end
+    if ~found_highest_iter
+        scatter_data_exist = false;
+        fprintf(fid_log, 'could not find highest scatter data file. \n');
+        fprintf('could not find highest scatter data file. \n');
+    else
+        fprintf(fid_log, 'found scatter data files: %s, and *trues.sino4d\n', scatter_data_file);
+        fprintf('found scatter data files: %s, and *trues.sino4d\n', scatter_data_file);
+    end
+end
+
+% inform the user
 if ~scatter_data_exist
-    fprintf(fid_log, 'No prior scatter correction data found. Will create new data with simset (takes 4h per iteration!!)');
-    disp('No prior scatter correction data found. Will create new data with simset (takes 4h per iteration!!)');
+    fprintf(fid_log, 'No prior scatter correction data found. Will create new data with simset (takes ~4h per iteration!!)');
+    disp('No prior scatter correction data found. Will create new data with simset (takes ~4h per iteration!!)');
     pause(5.0);
 else
     fprintf(fid_log, 'Successfully retrieved prior scatter correction data in folder %s\n', dir_scatter_data);
     fprintf('Successfully retrieved prior scatter correction data in folder %s\n', dir_scatter_data);
 end
 
-
 %% main program
+% in case scatter correction data DO EXIST
 
-quit;%====================================================================================================================================REMOVE THIS LATER!!!
+if scatter_data_exist
+    
+% sum block sinograms from actual measurements!
+    fprintf('summing block sinograms\n'); disp('Summing block sinograms...');
+    basename_exp = [" "," "];
+    basename_exp(1) = sprintf('%s/block_sino_f%d_randoms', handles.lm_outfolder, frame_num);
+    basename_exp(2) = sprintf('%s/block_sino_f%d_prompts', handles.lm_outfolder, frame_num);
+    img_size = [91,60,112,112];
+    for f = 1:2
+        str = sprintf('Now summing:\n%s\n', basename_exp(f));
+        disp(str);
+        fprintf(fid_log, str);
+        fname_out = strcat(basename_exp(f),'.raw');
+        fid_tmp = fopen(fname_out, 'w');
 
-% put recon here for the case of existing scatter data, quit afterwards, so
-% that for loop will not be reached. 
+        data_out = zeros(img_size);
+        for i = 1:8
+            fprintf(fid_log, 'processing file %d\n', i); fprintf('processing file %d\n', i);
+            fname_in = strcat(basename_exp(f),sprintf('.%d.raw',i));
+            fid_in=fopen(fname_in);
+            data_in = fread(fid_in,'double');
+            data_in = reshape(data_in,img_size);
+            data_out = data_out + data_in;
+            fclose(fid_in);
+        end
+        fwrite(fid_tmp, data_out,'double');
+        fclose(fid_tmp);
+    end
+    disp('done');
 
+
+% calculate prompt-delays
+    fprintf(fid_log, 'getting prompt-delay sinogram file\n'); disp('Getting prompt-delay sinogram file');
+
+    basename_delay = [basename_exp{1}, '.raw'];
+    basename_prompt = [basename_exp{2}, '.raw'];
+    fname_pd = sprintf('%sblock_sino_f%d_pd.raw', basename_delay(1:strfind(basename_delay, 'block_sino_f')-1), frame_num);
+    
+    disp(basename_delay);
+    disp(basename_prompt);
+    disp(fname_pd);
+    
+    fid_p = fopen(basename_prompt, 'rb');
+    fid_d = fopen(basename_delay, 'rb');
+    data_prompt = fread(fid_p,'double');
+    data_delay = fread(fid_d,'double');
+
+    data_pd = data_prompt - data_delay;
+
+    fid_pd = fopen(fname_pd, 'w');
+    fwrite(fid_pd,data_pd,'double');
+
+    fclose(fid_p);
+    fclose(fid_d);
+    fclose(fid_pd);
+    disp('done');
+
+% scale scatter sinograms
+% scaling sinograms
+    fprintf(fid_log, 'scaling sinograms\n'); disp('scaling sinograms');
+    simulation_basename = [dir_scatter_data, '/f', num2str(highest_iteration), '.', num2str(highest_iteration)]     %only hand over base name without '_scatters.sino4d'
+    fname_sino_scaled_tmp = sinogram_scaling(highest_iteration, fname_pd, simulation_basename);
+    
+% move fname_sino_scaled_tmp to lm data folder
+    [FILEPATH,NAME,EXT] = fileparts(fname_sino_scaled_tmp);
+    fname_sino_scaled = [handles.lm_outfolder, NAME, EXT];
+    cmd_cp = ['cp ', fname_sino_scaled_tmp, ' ', fname_sino_scaled];
+    fprintf('copying sinogram to lm_outfolder using command %s\n', cmd_cp);
+    fprintf(fid_log, 'copying sinogram to lm_outfolder using command %s\n', cmd_cp);
+    
+    
+% create updated add_fac file
+    fprintf(fid_log, 'creating updated add_fac file with scatter data\n'); disp('creating updated add_fac file with scatter data');
+    % "usage: " << argv[0] << " [lm_folder_name] " << " [scaled_sino] " << " [user_name] " << " [index_blockpairs_transaxial_2x91x60_int16] " << " [nc_file]"
+    nc_file = [handles.path_choose_server, handles.fname_choose_base, '1.nc'];
+    lm_data_folder = [handles.server_recon_data_dir, '/', outfolder_server_temp];
+    cmd_as2af = sprintf('%s %s %s %s %s %s', AddScatter2AddFac, lm_data_folder, fname_sino_scaled, user, fname_lut, nc_file);
+    fprintf(fid_log, 'command: %s\n', cmd_as2af);
+    system(cmd_as2af);
+    pause(0.1);
+    
+
+end
+
+
+%% MAIN PROGRAM PART II
+% run recons and simulations (if scatter data don't exist)
 
 for iter = 1 : handles.osem_iter
 %% recon part
+
+    if scatter_data_exist
+        iter = handles.osem_iter
+    end
 
     %check if last recon and if so, delete image guess to run recon without
     %guess and set number of iterations from 1 to handles.osem_iter
@@ -135,57 +254,87 @@ for iter = 1 : handles.osem_iter
     pause(0.1);
     
     % check if done and continue
-    recon_file_name = [handles.server_recon_data_dir,'/', outfolder_server_temp, '/lmrecon_output_f', num2str(frame_num), '.intermediate.1'];
+    recon_file_name = ' '; %#ok<NASGU>
+    if scatter_data_exist
+        recon_file_name = [handles.server_recon_data_dir,'/', outfolder_server_temp, '/lmrecon_output_f', num2str(frame_num), '.intermediate.', num2str(handles.osem_iter)];
+    else
+        recon_file_name = [handles.server_recon_data_dir,'/', outfolder_server_temp, '/lmrecon_output_f', num2str(frame_num), '.intermediate.1'];
+    end
     msg = ['checking if done: ', recon_file_name];
     fprintf(fid_log, '%s\n', msg); disp(msg);
     
     not_done = true;
     waitcounter=0; % just for control
-    waittime = 15.0;
+    waittime = 10.0;
     while not_done  
         msg = ['Estimated time elapsed since start: ', num2str(waitcounter*waittime)];
         fprintf(fid_log, '%s\n', msg); disp(msg);
+
+        waitcounter = waitcounter+1;
+        pause(waittime);    % wait for <waittime> seconds, then look again
         
         if exist(recon_file_name, 'file')
             not_done = false;
             fprintf(fid_log, 'recon file exists. continue with next step...\n');
             disp('recon file exists. continue with next step...');
         end
-        waitcounter = waitcounter+1;
-        pause(waittime);    % wait for <waittime> seconds, then look again
     end
         
     % copy recon output files 
     fprintf(fid_log, 'copying recon output files\n'); disp('copying recon output files');
     % 1)
-    cmd_cp_1 = ['cp ', recon_file_name, ' ', handles.server_recon_data_dir,'/', outfolder_server_temp, '/', handles.fname_recon, '_f', num2str(frame_num), '.intermediate.', num2str(iter)];
-    system(cmd_cp_1);
-    pause(0.1);
-    % 2)    
-    cmd_cp_2 = ['cp ', recon_file_name, ' ', handles.server_recon_data_dir,'/', outfolder_server_temp, '/img_guess_next_iter_f', num2str(frame_num)];
-    system(cmd_cp_2);
-    pause(0.1);
-    
-    %remove recon output files before starting new recon
-    fprintf(fid_log, 'removing recon output file\n'); disp('removing recon output file');
-    % .intermediate file
-    cmd_rm = ['rm ', recon_file_name];
-    system(cmd_rm);
-    pause(0.1);
-    %.img file
+    cmd_cp_1 = ' '; %#ok<NASGU>
+    if scatter_data_exist
+        for it=1:handles.osem_iter
+            recon_file_name = [recon_file_name(1:strfind(recon_file_name, '.intermediate.')), 'intermediate.', num2str(it)];
+            cmd_cp_1 = ['cp ', recon_file_name, ' ', handles.server_recon_data_dir,'/', outfolder_server_temp, '/', handles.fname_recon, '_f', num2str(frame_num), '.intermediate.', num2str(it)];
+            fprintf(fid_log, 'now copying: %s\n', cmd_cp_1);
+            fprintf('now copying: %s\n', cmd_cp_1);
+            system(cmd_cp_1);
+            pause(0.1);
+            
+            %removing recon output file
+            cmd_rm = ['rm ', recon_file_name];
+            fprintf(fid_log, 'removing recon output file: %s\n', cmd_rm); fprintf('removing recon output file: %s\n', cmd_rm);
+            system(cmd_rm);
+            pause(0.1);
+        end
+    else
+        % 1)
+        cmd_cp_1 = ['cp ', recon_file_name, ' ', handles.server_recon_data_dir,'/', outfolder_server_temp, '/', handles.fname_recon, '_f', num2str(frame_num), '.intermediate.', num2str(iter)];
+        fprintf(fid_log, 'now copying: %s\n', cmd_cp_1);
+        fprintf('now copying: %s\n', cmd_cp_1);
+        system(cmd_cp_1);
+        pause(0.1);
+        
+        %remove recon output files before starting new recon
+        cmd_rm = ['rm ', recon_file_name];
+        fprintf(fid_log, 'removing recon output file:%s \n', cmd_rm); disp('removing recon output file: %s ', cmd_rm);
+        system(cmd_rm);
+        pause(0.1);
+        
+        % 2)
+        cmd_cp_2 = ['cp ', recon_file_name, ' ', handles.server_recon_data_dir,'/', outfolder_server_temp, '/img_guess_next_iter_f', num2str(frame_num)];
+        system(cmd_cp_2);
+        pause(0.1);
+    end
+
+    %remove .img file
     recon_file_name_img = [recon_file_name(1:strfind(recon_file_name, '.intermediate.')), 'img' ];
     cmd_rm_img = ['rm ', recon_file_name_img];
     system(cmd_rm_img);
     pause(0.1);   
+    
+% break, if scatter data exist
+    if scatter_data_exist
+        break;
+    end
     
 %% simulation part
     
     % skip scatter correction part if it's the last iteration
     if iter == handles.osem_iter
         fprintf(fid_log, 'finished recon of last iteration. no scatter correction neccessary.'); disp('finished recon of last iteration. no scatter correction neccessary.');
-%         cmd_rm = ['rm ', handles.server_recon_data_dir,'/', outfolder_server_temp, '/img_guess_next_iter_f', num2str(frame_num)];
-%         system(cmd_rm);
-%         pause(0.1);
         break; % break out of big for loop
     end
 
@@ -212,7 +361,7 @@ for iter = 1 : handles.osem_iter
     if use_sim_node
         cmd_0 = ['ssh ', user, '@', server_name, ' "mkdir ', dir_base,'"'];  %#ok<UNRCH>
         system(cmd_0);
-        pause(0.1);
+        pause(0.1);   
         fprintf(fid_log, 'created folder on sim node: \n%s\n', cmd_0);
     end
     
@@ -221,7 +370,8 @@ for iter = 1 : handles.osem_iter
     dir_phg_params = strcat(dir_base,'/phg_params');
     dir_hist = strcat(dir_base,'/history');
     dir_phg_log = strcat(dir_base,'/phg_log');
-
+    
+    
      CreateFolder(dir_umap);
      CreateFolder(dir_amaps_out);
      CreateFolder(dir_phg_params);
@@ -440,7 +590,7 @@ for iter = 1 : handles.osem_iter
     % FIXME
     
     
-    % copy files from sim node to recon node
+%     copy files from sim node to recon node
     if use_sim_node
         fprintf(fid_log, 'copying files from sim node to recon node...\n'); disp('copying files from sim node to recon node...'); %#ok<UNRCH>
         cmd_rsync = ['rsync -arvu ', user, '@', server_name, ':', dir_hist, '/ ', dir_hist, '/ '];
@@ -465,7 +615,8 @@ for iter = 1 : handles.osem_iter
         system(cmd_rm);
         pause(0.1);
     end   
-    
+       
+       
     %% conversion and listmode decoding
 
 % convert history files to list-mode data
@@ -498,18 +649,20 @@ for iter = 1 : handles.osem_iter
     cmd = sprintf('%s f%d.%d_scatters.lm f%d.%d_scatters.sino4d %s', bin_lm2blocksino, iter, iter, iter, iter, fname_lut);
     system(cmd);
     pause(0.1);
-    
+
+          
+          
 % copy sinogram to study directory
     cmd_cp_scat = sprintf('cp f%d.%d_scatters.sino4d %s', iter, iter, dir_scatter_data);
     cmd_cp_true = sprintf('cp f%d.%d_trues.sino4d %s', iter, iter, dir_scatter_data);
+    fprintf(fid_log, 'copying sinograms to study dir using commands \n%s\nand\n%s\n', cmd_cp_scat, cmd_cp_true);
+    fprintf('copying sinograms to study dir using commands \n%s\nand\n%s\n', cmd_cp_scat, cmd_cp_true);
     system(cmd_cp_scat);
     pause(0.1);
     system(cmd_cp_true);
     pause(0.1);
-    fprintf(fid_log, 'copying sinograms to study dir using commands \n%s\nand\n%s\n', cmd_cp_scat, cmd_cp_true);
-    fprintf('copying sinograms to study dir using commands \n%s\nand\n%s\n', cmd_cp_scat, cmd_cp_true);
-    
-% sum block sinograms from actual measurements!
+   
+% % sum block sinograms from actual measurements!
 
     fprintf('summing block sinograms\n'); disp('Summing block sinograms...');
     basename_exp = [" "," "];
@@ -521,6 +674,14 @@ for iter = 1 : handles.osem_iter
         disp(str);
         fprintf(fid_log, str);
         fname_out = strcat(basename_exp(f),'.raw');
+        
+        % only perform summing if file does not exist yet:
+        if exist(fname_out, 'file')
+            fprintf('file exists. continue.');
+            fprintf(fid_log, 'file exists. continue.\n');
+            continue;
+        end
+        
         fid_tmp = fopen(fname_out, 'w');
 
         data_out = zeros(img_size);
@@ -538,38 +699,46 @@ for iter = 1 : handles.osem_iter
     end
     disp('done');
 
-    
+  
 % get prompts minus delayed
     fprintf(fid_log, 'getting prompt-delay sinogram file\n'); disp('Getting prompt-delay sinogram file');
 
     basename_delay = [basename_exp{1}, '.raw'];
     basename_prompt = [basename_exp{2}, '.raw'];
     fname_pd = sprintf('%sblock_sino_f%d_pd.raw', basename_delay(1:strfind(basename_delay, 'block_sino_f')-1), frame_num);
-    
-    disp(basename_delay);
-    disp(basename_prompt);
-    disp(fname_pd);
-    
-    fid_p = fopen(basename_prompt, 'rb');
-    fid_d = fopen(basename_delay, 'rb');
-    data_prompt = fread(fid_p,'double');
-    data_delay = fread(fid_d,'double');
 
-    data_pd = data_prompt - data_delay;
-
-    fid_pd = fopen(fname_pd, 'w');
-    fwrite(fid_pd,data_pd,'double');
-
-    fclose(fid_p);
-    fclose(fid_d);
-    fclose(fid_pd);
-    disp('done');
+    fprintf(fid_log, 'basename_delay: ', basename_delay);
+    fprintf(fid_log, 'basename_prompt: ', basename_prompt);
+    fprintf(fid_log, 'fname_pd: ', fname_pd);
+    fprintf('basename_delay: ', basename_delay);
+    fprintf('basename_prompt: ', basename_prompt);
+    fprintf('fname_pd: ', fname_pd);
     
+    % only perform calculation if file does not exist yet:
+    if exist(fname_pd, 'file')
+        fprintf(fid_log, 'file exists. continue.\n');
+        fprintf('file exists. continue.\n');
+    else
+        fid_p = fopen(basename_prompt, 'rb');
+        fid_d = fopen(basename_delay, 'rb');
+        data_prompt = fread(fid_p,'double');
+        data_delay = fread(fid_d,'double');
+
+        data_pd = data_prompt - data_delay;
+
+        fid_pd = fopen(fname_pd, 'w');
+        fwrite(fid_pd,data_pd,'double');
+
+        fclose(fid_p);
+        fclose(fid_d);
+        fclose(fid_pd);
+        disp('done');
+    end
     
 % scaling sinograms
     cd(sprintf('%s', currentFolder));
     fprintf(fid_log, 'scaling sinograms\n'); disp('scaling sinograms');
-    simulation_basename = [dir_hist, '/f', num2str(iter), '/f', num2str(iteration_num), '.', num2str(iteration_num),]     
+    simulation_basename = [dir_hist, '/f', num2str(iter), '/f', num2str(iter), '.', num2str(iter),]     
     fname_sino_scaled_tmp = sinogram_scaling(iter, fname_pd, simulation_basename);
     
 % move fname_sino_scaled_tmp to lm data folder
@@ -578,6 +747,8 @@ for iter = 1 : handles.osem_iter
     cmd_cp = ['cp ', fname_sino_scaled_tmp, ' ', fname_sino_scaled];
     fprintf('copying sinogram to lm_outfolder using command %s\n', cmd_cp);
     fprintf(fid_log, 'copying sinogram to lm_outfolder using command %s\n', cmd_cp);
+    system(cmd_cp);
+    pause(0.1);
     
     
 % create updated add_fac file
@@ -595,31 +766,13 @@ end % for loop over iterations
 
 
 
-%% sketch for main program
-% v for loop
-% v run recon by invoking skript run_lmrecon in the outfolder_server_temp
-% v check regularly if this is finished with while loop and check if output file exists and do while not exists. wait 5sec then look again.
-% v COPY NOT RENAME output file from recon: 1) img_guess_next_iter_fX and 2) handles.fname_recon, '_f', num2str(handles.reconFrames(kk)), '.intermediate.ITERATION_NUM
-% v calculate number to simulate from lm file and take 10 times as many, but at least 1bn (1e9)
-% v only run simulation if current iteration number is smaller than handles.osem_iter
-% v invoke simulation 
-% v conversion
-% v scaling
-% v read lm 
-% v clean up simulation directory on sim node at the end of each iteration!
-% v rerun recon after last scatter estimate, passing NO IMAGE GUESS to the recon executable
-
-
-
-
 
 %% clean up
 %delete(handles_name); 
 pause(0.1); 
 
-
-
-fprintf(fid_log, 'done.');
+fprintf(fid_log, 'done scat_corr_recon.');
+fprintf('done scat_corr_recon.');
 fclose(fid_log);
 quit;
 end % function 

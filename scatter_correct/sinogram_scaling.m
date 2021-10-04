@@ -13,6 +13,8 @@ basename_scaled = ['f', num2str(iteration_num), '_scatters'];
 fname_t = [basename_ts, '_trues.sino4d'];
 fname_s = [basename_ts, '_scatters.sino4d'];
 
+fprintf('simulation_basename: %s \nbasename_scaled: %s \nfname_t: %s \nfname_s: %s', simulation_basename, basename_scaled, fname_t, fname_s);
+
 % use one of the other setup for mask
 
 fname_ct_fproj = ''; % mask
