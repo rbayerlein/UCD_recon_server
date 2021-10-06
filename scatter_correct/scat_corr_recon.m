@@ -25,7 +25,7 @@ fprintf(fid_log, 'starting scatter corrected list-mode reconstruction\n'); disp(
 user = 'rbayerlein';
 server_name = 'exp-sim-001'; %#ok<NASGU>
 
-use_sim_node = false;
+use_sim_node = true;
 if use_sim_node
     msg = ['using ', server_name, ' to run simulations.']; %#ok<UNRCH>
     fprintf(fid_log, '%s\n', msg); disp(msg);
@@ -115,8 +115,6 @@ if scatter_data_exist
             highest_iteration=it;
             scatter_data_file=temp_name_s;
             trues_data_file=temp_name_t;
-        else
-            break;
         end    
     end
     if ~found_highest_iter
@@ -131,7 +129,7 @@ end
 
 % inform the user
 if ~scatter_data_exist
-    fprintf(fid_log, 'No prior scatter correction data found. Will create new data with simset (takes ~4h per iteration!!)');
+    fprintf(fid_log, 'No prior scatter correction data found. Will create new data with simset (takes ~4h per iteration!!)\n');
     disp('No prior scatter correction data found. Will create new data with simset (takes ~4h per iteration!!)');
     pause(5.0);
 else
@@ -149,7 +147,7 @@ if scatter_data_exist
     basename_exp = [" "," "];
     basename_exp(1) = sprintf('%s/block_sino_f%d_randoms', handles.lm_outfolder, frame_num);
     basename_exp(2) = sprintf('%s/block_sino_f%d_prompts', handles.lm_outfolder, frame_num);
-    img_size = [91,60,112,112];
+    img_size_sino4d = [91,60,112,112];
     for f = 1:2
         str = sprintf('Now summing:\n%s\n', basename_exp(f));
         disp(str);
@@ -157,13 +155,13 @@ if scatter_data_exist
         fname_out = strcat(basename_exp(f),'.raw');
         fid_tmp = fopen(fname_out, 'w');
 
-        data_out = zeros(img_size);
+        data_out = zeros(img_size_sino4d);
         for i = 1:8
             fprintf(fid_log, 'processing file %d\n', i); fprintf('processing file %d\n', i);
             fname_in = strcat(basename_exp(f),sprintf('.%d.raw',i));
             fid_in=fopen(fname_in);
             data_in = fread(fid_in,'double');
-            data_in = reshape(data_in,img_size);
+            data_in = reshape(data_in,img_size_sino4d);
             data_out = data_out + data_in;
             fclose(fid_in);
         end
@@ -257,15 +255,15 @@ for iter = 1 : handles.osem_iter
     
     %start recon
     cmd_recon = [handles.recon_path_server, 'lmrecon_tof ',handles.server_recon_data_dir,'/', outfolder_server_temp,'/lmacc_scanner_parameter_f',num2str(frame_num),'.cfg &'];
-    msg = ['starting recon for iteration ', num2str(iter), '\n using command: "', cmd_recon, '"'];
+    msg = ['starting recon for iteration ', num2str(iter), ' using command: "', cmd_recon, '"\n'];
     fprintf(fid_log, msg); disp(msg);
     system(cmd_recon);
     pause(0.1);
     
     % check if done and continue
     recon_file_name = ' '; %#ok<NASGU>
-    if scatter_data_exist
-        recon_file_name = [handles.server_recon_data_dir,'/', outfolder_server_temp, '/lmrecon_output_f', num2str(frame_num), '.intermediate.', num2str(handles.osem_iter)];
+    if iter == handles.osem_iter
+        recon_file_name = [handles.server_recon_data_dir,'/', outfolder_server_temp, '/lmrecon_output_f', num2str(frame_num), '.intermediate.', num2str(iter)];
     else
         recon_file_name = [handles.server_recon_data_dir,'/', outfolder_server_temp, '/lmrecon_output_f', num2str(frame_num), '.intermediate.1'];
     end
@@ -293,8 +291,9 @@ for iter = 1 : handles.osem_iter
     fprintf(fid_log, 'copying recon output files\n'); disp('copying recon output files');
     % 1)
     cmd_cp_1 = ' '; %#ok<NASGU>
-    if scatter_data_exist
+    if iter == handles.osem_iter
         for it=1:handles.osem_iter
+            %copy recon output file to actual intermediate file
             recon_file_name = [recon_file_name(1:strfind(recon_file_name, '.intermediate.')), 'intermediate.', num2str(it)];
             cmd_cp_1 = ['cp ', recon_file_name, ' ', handles.server_recon_data_dir,'/', outfolder_server_temp, '/', handles.fname_recon, '_f', num2str(frame_num), '.intermediate.', num2str(it)];
             fprintf(fid_log, 'now copying: %s\n', cmd_cp_1);
@@ -316,20 +315,22 @@ for iter = 1 : handles.osem_iter
         system(cmd_cp_1);
         pause(0.1);
         
-        %remove recon output files before starting new recon
-        cmd_rm = ['rm ', recon_file_name];
-        fprintf(fid_log, 'removing recon output file:%s \n', cmd_rm); disp('removing recon output file: %s ', cmd_rm);
-        system(cmd_rm);
-        pause(0.1);
-        
         % 2)
         cmd_cp_2 = ['cp ', recon_file_name, ' ', handles.server_recon_data_dir,'/', outfolder_server_temp, '/img_guess_next_iter_f', num2str(frame_num)];
+        fprintf(fid_log, 'creating image guess using command %s\n', cmd_cp_2); fprintf('creating image guess using command %s\n', cmd_cp_2);
         system(cmd_cp_2);
+        pause(0.1);
+        
+        %remove recon output files before starting new recon
+        cmd_rm = ['rm ', recon_file_name];
+        fprintf(fid_log, 'removing recon output file: %s \n', cmd_rm); fprintf('removing recon output file: %s ', cmd_rm);
+        system(cmd_rm);
         pause(0.1);
     end
 
     %remove .img file
     recon_file_name_img = [recon_file_name(1:strfind(recon_file_name, '.intermediate.')), 'img' ];
+    fprintf(fid_log, 'removing img: %s\n', recon_file_name_img); fprintf('removing img: %s\n', recon_file_name_img);
     cmd_rm_img = ['rm ', recon_file_name_img];
     system(cmd_rm_img);
     pause(0.1);   
@@ -457,9 +458,10 @@ for iter = 1 : handles.osem_iter
     fname_phg_act_tables = sprintf('%s/f%d/phg_act_table.%d',dir_amaps_out,iter, iter); 
     fprintf(fid_log, 'fname_phg_act_tables: %s\n', fname_phg_act_tables);
     
-    fclose(fid_log); %close before saving because SaveImg2Amp contains close all command
+    fclose(fid_log); %close before saving because SaveImg2Amp prints to log file, too.
     pause(0.1);
-    SaveImg2Amap(fname_amaps_in,fname_amaps_out,fname_phg_act_tables,n_bins,img_size,vox_size);   
+    SaveImg2Amap(fname_amaps_in,fname_amaps_out,fname_phg_act_tables,n_bins,img_size,vox_size,fname_log);   
+    pause(0.1);
     fid_log = fopen(fname_log, 'a+'); % reopen after
     
     cd(sprintf('%s', scripts_dir));
@@ -677,7 +679,7 @@ for iter = 1 : handles.osem_iter
     basename_exp = [" "," "];
     basename_exp(1) = sprintf('%s/block_sino_f%d_randoms', handles.lm_outfolder, frame_num);
     basename_exp(2) = sprintf('%s/block_sino_f%d_prompts', handles.lm_outfolder, frame_num);
-    img_size = [91,60,112,112];
+    img_size_sino4d = [91,60,112,112];
     for f = 1:2
         str = sprintf('Now summing:\n%s\n', basename_exp(f));
         disp(str);
@@ -693,13 +695,13 @@ for iter = 1 : handles.osem_iter
         
         fid_tmp = fopen(fname_out, 'w');
 
-        data_out = zeros(img_size);
+        data_out = zeros(img_size_sino4d);
         for i = 1:8
             fprintf(fid_log, 'processing file %d\n', i); fprintf('processing file %d\n', i);
             fname_in = strcat(basename_exp(f),sprintf('.%d.raw',i));
             fid_in=fopen(fname_in);
             data_in = fread(fid_in,'double');
-            data_in = reshape(data_in,img_size);
+            data_in = reshape(data_in,img_size_sino4d);
             data_out = data_out + data_in;
             fclose(fid_in);
         end
@@ -716,12 +718,12 @@ for iter = 1 : handles.osem_iter
     basename_prompt = [basename_exp{2}, '.raw'];
     fname_pd = sprintf('%sblock_sino_f%d_pd.raw', basename_delay(1:strfind(basename_delay, 'block_sino_f')-1), frame_num);
 
-    fprintf(fid_log, 'basename_delay: %s', basename_delay);
-    fprintf(fid_log, 'basename_prompt: %s', basename_prompt);
-    fprintf(fid_log, 'fname_pd: %s', fname_pd);
-    fprintf('basename_delay: %s', basename_delay);
-    fprintf('basename_prompt: %s', basename_prompt);
-    fprintf('fname_pd: %s', fname_pd);
+    fprintf(fid_log, 'basename_delay: %s\n', basename_delay);
+    fprintf(fid_log, 'basename_prompt: %s\n', basename_prompt);
+    fprintf(fid_log, 'fname_pd: %s\n', fname_pd);
+    fprintf('basename_delay: %s\n', basename_delay);
+    fprintf('basename_prompt: %s\n', basename_prompt);
+    fprintf('fname_pd: %s\n', fname_pd);
     
     % only perform calculation if file does not exist yet:
     if exist(fname_pd, 'file')
@@ -780,8 +782,8 @@ end % for loop over iterations
 %delete(handles_name); 
 pause(0.1); 
 
-fprintf(fid_log, 'done scat_corr_recon.');
-fprintf('done scat_corr_recon.');
+fprintf(fid_log, 'done scat_corr_recon.\n');
+fprintf('done scat_corr_recon.\n');
 fclose(fid_log);
 quit;
 end % function 
