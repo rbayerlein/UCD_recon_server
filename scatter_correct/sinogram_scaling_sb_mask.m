@@ -105,6 +105,30 @@ for axB = 1:img_size(4)
     end
 end
 
+% semi-binary mask (for multi-bed imaging)
+img_size = [91,60,112,112];
+num_ax_crys_per_block=6;
+
+num_beds = 6;
+num_rings_per_bed=78;
+rings_overlap=34;
+start_ring = 118;
+
+sb_mask = zeros(img_size(3), img_size(4));
+for n_bed = 1:num_beds
+    bed_ring_start=(start_ring + (n_bed-1)*(num_rings_per_bed-rings_overlap))
+    bed_ring_end = (bed_ring_start + num_rings_per_bed-1)
+    % adjust to block sinos
+    bed_sinobin_start=ceil(bed_ring_start/num_ax_crys_per_block)
+    bed_sinobin_end = ceil(bed_ring_end/num_ax_crys_per_block)
+    
+    for i = bed_sinobin_start:bed_sinobin_end
+        for j = bed_sinobin_start:bed_sinobin_end
+            sb_mask(i,j) = sb_mask(i,j) + 1;
+        end
+    end
+end
+
 % find scaling factor (mich)
 disp('Finding scaling factor (mich)...');
 x_optimal = zeros(img_size(3),img_size(4));
@@ -119,6 +143,41 @@ for axB = 1:img_size(4)
         end
     end
 end
+
+% calculate averag x_optimal based on semi-binary mask
+avg_1 = 0;
+ct_1 = 0;
+avg_2 = 0;
+ct_2 = 0;
+
+for i = 1 : img_size(3)
+    for j = 1 : img_size(4)
+        if sb_mask(i,j) == 1
+            avg_1 = avg_1 + x_optimal(i,j);
+            ct_1 = ct_1 + 1;
+        elseif sb_mask(i,j) == 2
+            avg_2 = avg_2 + x_optimal(i,j);
+            ct_2 = ct_2 + 1;
+        else
+            x_optimal(i,j) = 0;
+        end
+    end
+end
+avg_1 = avg_1/ct_1;
+avg_2 = avg_2/ct_2;
+
+for i = 1 : img_size(3)
+    for j = 1 : img_size(4)
+        if sb_mask(i,j) == 1
+            x_optimal(i,j) = avg_1;
+        elseif sb_mask(i,j) == 2
+            x_optimal(i,j) = avg_2;
+        else
+            continue;
+        end
+    end
+end
+
 
 disp('Applying MUD (x_optimal)...');
 for axB = 1:img_size(4)
@@ -241,16 +300,16 @@ legend('Experimental (P-D)','Simulation (T+S)','P-D-S','Simulation (T)','Simulat
 title('SSRB');
 set(gca,'FontSize',11,'FontWeight','bold');
 
-figure();
-plot(sino_pd(:,1,axAi,axBi),'-b'); hold on;
-plot((sino_t(:,1,axAi,axBi)+sino_s(:,1,axAi,axBi))*x_optimal(axAi,axBi),'--b');
-plot(sino_pd(:,1,axAi,axBi)-sino_s_scaled(:,1,axAi,axBi),'-r');
-plot(sino_t(:,1,axAi,axBi)*x_optimal(axAi,axBi),'--r');
-plot(sino_s_scaled(:,1,axAi,axBi),'-k');
-ylabel('Counts'); xlabel('Bin number');
-legend('Experimental (P-D)','Simulation (T+S)','P-D-S','Simulation (T)','Simulation (S)');
-title('Direct plane');
-set(gca,'FontSize',11,'FontWeight','bold');
+% figure();
+% plot(sino_pd(:,1,axAi,axBi),'-b'); hold on;
+% plot((sino_t(:,1,axAi,axBi)+sino_s(:,1,axAi,axBi))*x_optimal(axAi,axBi),'--b');
+% plot(sino_pd(:,1,axAi,axBi)-sino_s_scaled(:,1,axAi,axBi),'-r');
+% plot(sino_t(:,1,axAi,axBi)*x_optimal(axAi,axBi),'--r');
+% plot(sino_s_scaled(:,1,axAi,axBi),'-k');
+% ylabel('Counts'); xlabel('Bin number');
+% legend('Experimental (P-D)','Simulation (T+S)','P-D-S','Simulation (T)','Simulation (S)');
+% title('Direct plane');
+% set(gca,'FontSize',11,'FontWeight','bold');
 % 
 % figure();
 % plot(sino_pd(:,1,axAj,axBj),'-b'); hold on;

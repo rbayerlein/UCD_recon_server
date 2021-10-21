@@ -26,7 +26,7 @@ recon_frame_running = zeros(length(handles.reconFrames), 1);
 
 
 %% toBeDeleted
-fname_log='/home/rbayerlein/code/explorer-master/test.log';
+fname_log=[handles.lm_outfolder, '/recon_scheduler_server.log'];
 fid_log = fopen(fname_log, 'w');
 pause(0.1);
 
@@ -36,6 +36,11 @@ pause(0.1);
 
 fprintf(fid_log, 'start of recon_scheduler_server\n');
 %%
+
+fprintf(fid_log, 'copying handles file to lm outfolder'); fprintf('copying handles file to lm outfolder');
+cmd_cp = ['cp ', handles_name, ' ', handles.lm_outfolder];
+system(cmd_cp);
+pause(0.1);
 
 use_scat_corr=handles.scatter_onoff.Value;
 fprintf(fid_log, 'correct scatter: %d\n', double(use_scat_corr));
@@ -289,7 +294,7 @@ while not_done
           handles.lm_outfolder, 'randoms* '...
           handles.lm_outfolder, 'singles* '];
           fprintf(fid_log, '%s\n', cmd_rm); fprintf(cmd_rm);
-          system(cmd_rm);
+        %  system(cmd_rm);
           pause(0.1);
 
           %copy lm and add fac files from temp dir to lm_outfolder
@@ -308,7 +313,7 @@ while not_done
 
           % wipe the temporary dir on the server
           cmd_clean = ['cd ', handles.server_recon_data_dir,' && rm -r ', handles.server_temp_dir{kk},'/ ',]; 
-          system(cmd_clean); 
+        %  system(cmd_clean); 
           pause(0.01);
         end
         recon_frame_done(kk) = 1; 

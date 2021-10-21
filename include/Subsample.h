@@ -28,7 +28,9 @@ public:
 																	Takes the axial and transaxial coordinates of the two coincident crystals as input.
 																	*/
 
-	std::string GetRawInputFullPath(){return input_raw_fullpath;};
+	std::string GetRawInputFullPath(){return input_raw_fullpath;};	
+	int GetType(std::string s_temp);								/*!< Function that takes the string from the config file and returns the number of the type*/
+	int GetParameterValue(std::string s_temp);							/*!< Function that takes the string from the config file and returns the parameter value*/
 
 private:
 	void Initialize();												/*!< Function to initialize bed positions and numbers of cycles etc */
@@ -61,6 +63,7 @@ private:
 	int time_per_bed;
 
 	int firstTimeStamp;												/*!< first time stamp in the data set */
+	int config_param[6];											/*!< config parameters like number of beds, overlap, start ring...*/
 
 
 };

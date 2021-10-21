@@ -1,4 +1,9 @@
 function scat_corr_recon(frame_num)
+%% Description
+% function to run recons and handle simset scatter simulations.
+% created by Reimund Bayerlein
+% 10-07-2021, UC Davis
+
 %% get access to handles
 disp('reading in parameters from handler');
 handles_name = '/home/rbayerlein/code/explorer-master/handles_scheduler.mat'; 
@@ -25,7 +30,7 @@ fprintf(fid_log, 'starting scatter corrected list-mode reconstruction\n'); disp(
 user = 'rbayerlein';
 server_name = 'exp-sim-001'; %#ok<NASGU>
 
-use_sim_node = true;
+use_sim_node = false;
 if use_sim_node
     msg = ['using ', server_name, ' to run simulations.']; %#ok<UNRCH>
     fprintf(fid_log, '%s\n', msg); disp(msg);
@@ -209,7 +214,8 @@ if scatter_data_exist
     cmd_cp = ['cp ', fname_sino_scaled_tmp, ' ', fname_sino_scaled];
     fprintf('copying sinogram to lm_outfolder using command %s\n', cmd_cp);
     fprintf(fid_log, 'copying sinogram to lm_outfolder using command %s\n', cmd_cp);
-    
+    system(cmd_cp);
+    pause(0.1);
     
 % create updated add_fac file
     fprintf(fid_log, 'creating updated add_fac file with scatter data\n'); disp('creating updated add_fac file with scatter data');
@@ -650,12 +656,12 @@ for iter = 1 : handles.osem_iter
 
 % convert lm to sino: run_lm2blocksino.sh
 
-    fprintf('converting trues from list-mode to sinogram\n'); disp('Converting trues from list-mode to sinogram...');
+    fprintf(fid_log, 'converting trues from list-mode to sinogram\n'); disp('Converting trues from list-mode to sinogram...');
     cd(sprintf('%s/f%d',dir_hist,iter));
     cmd = sprintf('%s f%d.%d_trues.lm f%d.%d_trues.sino4d %s', bin_lm2blocksino, iter, iter, iter, iter, fname_lut);
     system(cmd);
 
-    fprintf('converting scatters from list-mode to sinogram\n'); disp('Converting scatters from list-mode to sinogram...');
+    fprintf(fid_log, 'converting scatters from list-mode to sinogram\n'); disp('Converting scatters from list-mode to sinogram...');
     cd(sprintf('%s/f%d',dir_hist,iter));
     cmd = sprintf('%s f%d.%d_scatters.lm f%d.%d_scatters.sino4d %s', bin_lm2blocksino, iter, iter, iter, iter, fname_lut);
     system(cmd);

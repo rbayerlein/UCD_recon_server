@@ -21,6 +21,10 @@ int num_tx_crys_per_block = 7;
 int num_lor_blkpair = 903;
 int num_crystals_all = 564480;
 
+// ====================== scaling factor for scatter contribution (for debugging only)
+double scaling_factor = 1.0;
+// ======================
+
 struct Lut {
 	short nv,nu;
 }; // block lut
@@ -173,7 +177,7 @@ int main(int argc, char **argv) {
 // ooo000OOO000ooo...ooo000OOO000ooo...ooo000OOO000ooo ==== main program start
 
 	// read in events from lm file
-	cout << "-> reading from file...(may take a while)" << endl;
+	cout << "-> reading from list mode file...(may take a while)" << endl;
 
 	// get buffers 
 	ids * pids_in = new ids[BUFFER_SIZE];
@@ -183,6 +187,8 @@ int main(int argc, char **argv) {
 
 	int num_buffers_read = 1;
 	int buffer_indx = 0;
+	int set_zero_ct = 0; // for debugging only
+	
 	while(!feof(pInputFile_lm)){
 		//cout << "----> reading buffer number " << num_buffers_read << endl;
 
@@ -212,17 +218,20 @@ int main(int argc, char **argv) {
 			// calculate correction factor
 			float stemp = (float)scatter_sino[ind_blk_sino];
 			stemp = (float)stemp/num_lor_blkpair;
+
 			if(abs(pids_in[i].tof) < 64){
 				stemp = stemp * tof_wt[pids_in[i].tof+64];
 			}else{
 				stemp = 0.0;
+				set_zero_ct++;
 			}
 
-			stemp = stemp * nc_crys[axCrysA + 672*txCrysA] * nc_crys[axCrysB + 672*txCrysB];
+			stemp = stemp*scaling_factor;
+			stemp = stemp / ( nc_crys[axCrysA + 672*txCrysA] * nc_crys[axCrysB + 672*txCrysB]);
 			
+			stemp = stemp * mul_fac[i];			// apply dead time and decay correction to scatters (randoms already have it)
 			float rtemp = add_fac[i];			// read in randoms from original add_fac file
 			rtemp = rtemp + stemp;				// add scatters and randoms
-			rtemp = rtemp * mul_fac[i];			// apply dead time and decay correction to scatters and randoms
 			
 			add_fac_out[i]=rtemp;
 			buffer_indx++;
@@ -236,7 +245,7 @@ int main(int argc, char **argv) {
 		num_buffers_read++;
 	}
 	fwrite(add_fac_out, sizeof(float), buffer_indx, pOutputFile_add_fac);
-
+	cout << "set zero counter: "<< set_zero_ct << " (for debugging only)" << endl;
 
 	// re-name original file and save new file under original name
 	cout << "-> deleting existing *.add_fac and renaming new file to *.add_fac" << endl;
