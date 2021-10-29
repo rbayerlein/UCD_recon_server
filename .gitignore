@@ -15,3 +15,5 @@ nema/
 reconstruction/correction_sino/*
 read_lm/lut/block_sino_f0_scatters*
 reconstruction/normalization/20200101/
+read_lm/generate_lm_attn_fp_exp/lm_attn_fp_exp/*
+read_lm/generate_lm_attn_fp_exp/cfg_attn_fp_exp/*

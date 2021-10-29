@@ -1640,7 +1640,7 @@ int main(int argc, char **argv) {
 
 								//rtemp = rtemp / (2.0 * (float)num_lor_modpair);
 										// calculate mean num of rand of one LOR (current LOR):
-								if (unit_diff == 0) {	// unit_diff always zero, because commented out at around line 1514
+								if (unit_diff == 0) {	
 									rtemp = rtemp
 											/ (2.0 * (float) num_lor_modpair);	// multiply num_lor_modpair by 2, otherwise only half the possible crystal pairs between two blocks are considered
 								} else {
@@ -1666,7 +1666,7 @@ int main(int argc, char **argv) {
 //								rtemp =  rtemp +  stemp;	// add scatters and randoms 
 //
 //	================================================================================================================================================================							
-								rtemp = rtemp * mtemp;		// apply dead time and decay correction to scatters and randoms
+							//	rtemp = rtemp * mtemp;		// apply dead time and decay correction to scatters and randoms
 
 								//rtemp = rtemp * (nc_crys[crys1] / nc_mod[modA]) * (nc_crys[crys2] / nc_mod[modB]);
 

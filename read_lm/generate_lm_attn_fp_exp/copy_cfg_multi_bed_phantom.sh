@@ -1,6 +1,19 @@
 #!/bin/bash
-mkdir cfg_attn_fp_exp
-mkdir lm_attn_fp_exp
+study_dir=/home/rbayerlein/data/explorer/20210827/Multi-Bed_Phantom_Multi-Bed_Phantom_154523
+output_data_temp=/home/rbayerlein/ssd/YXZEFSTBRV
+cfg_folder=${output_data_temp}/cfg_attn_fp_exp
+lm_folder=${output_data_temp}/lm_attn_fp_exp
+
+if [[ ! -d $cfg_folder ]]; then
+	mkdir $cfg_folder
+	chmod -R 775 $cfg_folder
+fi
+
+if [[ ! -d $lm_folder ]]; then
+	mkdir $lm_folder
+	chmod -R 775 $lm_folder
+fi
+
 for (( m=1; m<=8; m++ )) do
 {
     
@@ -19,7 +32,7 @@ voxel_size = 2.85, 2.85, 2.85
 
 iterative_algorithm_type = 0
 
-initial_guess = /home/rbayerlein/data/explorer/20210827/Multi-Bed_Phantom_Multi-Bed_Phantom_154523/UCD/Image/CTAC_201_mumap_kVp-140_size-256x256x828_vox-2.7344x2.7344x2.344.img
+initial_guess = ${study_dir}/UCD/Image/CTAC_201_mumap_kVp-140_size-239x239x239_vox-2.85x2.85x2.85.img
 
 
 warmup_setting = 1, 1
@@ -31,13 +44,13 @@ regularizer_potential_function_type = 2   #0: Quadratic, 1: Hyperbola, 2: Fair, 
 regularizer_neighborhood_properties = 0, 1    #size, isotropic  #0: 3x3x3, 1:isotropic  # 1st(0) or 2nd(1), aniso(0) or iso(1)
 regularizer_buildin_parameter_list = 1e-10
 
-input_raw_data_file = /home/rbayerlein/ssd/IDQVJTYNOC/lm_reorder_f0_prompts.$[$m].lm
+input_raw_data_file = ${output_data_temp}/lm_reorder_f0_prompts.$[$m].lm
 
 input_raw_data_format_type = 0
 
-reconstruction_output_setting =./lm_attn_fp_exp, ./lm_prompts_f$[$m]_attn_fp_exp.raw
+reconstruction_output_setting =${lm_folder}, ./lm_prompts_f$[$m]_attn_fp_exp.raw
 
-	 " >  ./cfg_attn_fp_exp/lmrecon_attn_fp_exp_f$m.cfg
+	 " > ${cfg_folder}/lmrecon_attn_fp_exp_f$m.cfg
 
 }
 done
