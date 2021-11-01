@@ -27,8 +27,8 @@ struct ids {
 
 int main(int argc, char **argv) {
 
-	if (argc != 6 ) {
-		cout << "usage: " << argv[0] << " [lm_file_name] [attn_fp_filename] [user_name] [crys_eff] [plane_eff]" << endl; // instead of nc file read in crys eff and plane eff
+	if (argc != 5 ) {
+		cout << "usage: " << argv[0] << " [lm_file_name] [attn_fp_filename] [crys_eff] [plane_eff]" << endl; // instead of nc file read in crys eff and plane eff
 		cerr << "wrong number of input parameters" << endl;
 		exit(1);
 	}
@@ -136,13 +136,13 @@ int main(int argc, char **argv) {
 
 	//here read in crys eff and plane eff instead of nc file.  
 	cout <<"-> getting crystal efficiencies from file: " << endl;
-	string crys_fullpath = argv[4];
+	string crys_fullpath = argv[3];
 	cout << "\t" << crys_fullpath << endl;
 	ifstream crys_read;
 	crys_read.open(crys_fullpath.c_str(), ios::in | ios::binary);
 
 	cout <<"-> getting plane efficiencies from file: " << endl;
-	string plane_fullpath = argv[5];
+	string plane_fullpath = argv[4];
 	cout << "\t" << plane_fullpath << endl;
 	ifstream plane_read;
 	plane_read.open(plane_fullpath.c_str(), ios::in | ios::binary);

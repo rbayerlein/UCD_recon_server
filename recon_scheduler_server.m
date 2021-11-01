@@ -192,7 +192,7 @@ while not_done
         system(ssss); 
         pause(0.1);
 
-      end  
+      end  % if condition (subsample ON / OFF)
         
         % move the data to recon server 
   	  cmd_mvdata = ['cp -r ', '"',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.1.lm" "',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.1.mul_fac" "',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.1.add_fac" "',...
@@ -206,6 +206,17 @@ while not_done
   		handles.sensitivity_path_server_backup,'" "', toRun_sh,'" "', handles.lm_outfolder,'lmacc_scanner_parameter_f',num2str(m),'.cfg" ', handles.server_recon_data_dir, '/',outfolder_server_temp,'/ '];  
   	  system(cmd_mvdata); 
   	  pause(0.1);
+
+      % get path to script to generate attenuation factors
+      attn_path_name = [handles.install_dir_server, '/read_lm/generate_lm_attn_fp_exp'];
+      p_attn = genpath(attn_path_name); 
+      addpath(p_attn); 
+
+      % run script that adds attenuation factors to add_fac files 
+      fprintf(fid_log, 'now running attn_fp to create the attenuation factors\n');fprintf('now running attn_fp to create the attenuation factors\n');
+      attn_fp(m); % m is frame number
+      pause(0.1);
+      fprintf(fid_log, 'done running attn_fp.\n');fprintf('done running attn_fp.\n');
 
       if subsample_on
         for ks = 0:handles.num_sub_frames
@@ -374,7 +385,7 @@ fprintf(fid_log, 'done all recons of all frames and iterations.'); %toBeDeleted
 disp('done all recons of all frames and iterations.'); %toBeDeleted
 
 fclose(fid_log); %toBeDeleted
-delete(handles_name); 
+%delete(handles_name); 
 pause(0.1); 
 quit
 

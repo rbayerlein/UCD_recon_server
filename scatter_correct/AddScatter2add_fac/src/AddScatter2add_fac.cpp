@@ -20,10 +20,8 @@ int num_ax_crys_per_block = 6;
 int num_tx_crys_per_block = 7;
 int num_lor_blkpair = 903;
 int num_crystals_all = 564480;
+int num_plane_efficiencies = 461041; // 679*679
 
-// ====================== scaling factor for scatter contribution (for debugging only)
-double scaling_factor = 1.0;
-// ======================
 
 struct Lut {
 	short nv,nu;
@@ -46,15 +44,19 @@ int main(int argc, char **argv) {
 	string infile_fullpath = argv[1];
 	cout << "-> opening list-mode files from folder " << infile_fullpath << endl;
 
-	stringstream ss_lm_file, ss_add_fac, ss_mul_fac, ss_add_fac_out;
-	ss_lm_file << infile_fullpath << "/lm_reorder_f0_prompts.lm";
-	ss_add_fac << infile_fullpath << "/lm_reorder_f0_prompts.add_fac";
-	ss_add_fac_out << infile_fullpath << "/lm_reorder_f0_prompts.add_fac_out";	// for writing output
-	ss_mul_fac << infile_fullpath << "/lm_reorder_f0_prompts.mul_fac";
+	string lm_file_name_raw = "/lm_reorder_f0_prompts";	// LATER this SHOULD be created using the frame number passed to this executable!
+
+	stringstream ss_lm_file, ss_add_fac, ss_mul_fac, ss_add_fac_out, ss_attn_fac;
+	ss_lm_file << infile_fullpath << lm_file_name_raw << ".lm";
+	ss_add_fac << infile_fullpath << lm_file_name_raw << ".add_fac";
+	ss_add_fac_out << infile_fullpath << lm_file_name_raw << ".add_fac_out";	// for writing output
+	ss_mul_fac << infile_fullpath << lm_file_name_raw << ".mul_fac";
+	ss_attn_fac << infile_fullpath << lm_file_name_raw << ".attn_fac";
 	
 	string infile_lm = ss_lm_file.str();
 	string infile_add_fac = ss_add_fac.str();
 	string infile_mul_fac = ss_mul_fac.str();
+	string infile_attn_fac = ss_attn_fac.str();
 	string outfile_add_fac = ss_add_fac_out.str();
 
 	// always use original add_fac file coming from the read_lm executable 
@@ -87,6 +89,12 @@ int main(int argc, char **argv) {
 	FILE *pInputFile_mul_fac =  fopen(infile_mul_fac.c_str(), "rb");
 	if (pInputFile_mul_fac == NULL) { // check return value of file pointer
 		cerr << infile_mul_fac << " cannot be opened." << endl;
+		exit(1);
+	}	
+
+	FILE *pInputFile_attn_fac =  fopen(infile_attn_fac.c_str(), "rb");
+	if (pInputFile_attn_fac == NULL) { // check return value of file pointer
+		cerr << infile_attn_fac << " cannot be opened." << endl;
 		exit(1);
 	}	
 
@@ -153,6 +161,7 @@ int main(int argc, char **argv) {
 	ifstream nc_read;
 	nc_read.open(ncfile_fullpath.c_str(), ios::in | ios::binary);
 	vector<float> nc_crys(num_crystals_all);
+	vector<float> nc_plane(num_plane_efficiencies);
 
 	bool use_nc_default = false;
 	if (!nc_read) {
@@ -161,11 +170,21 @@ int main(int argc, char **argv) {
 		for (int nci = 0; nci < num_crystals_all; nci++) {
 			nc_crys[nci] = 1.0;
 		}
+		for (int i = 0; i < num_plane_efficiencies; ++i)
+		{
+			nc_plane[i] = 1.0;
+		}
 	}
 
 	if (!use_nc_default) {
+		nc_read.seekg( 2079453 * 4, nc_read.beg);
+		for (int nc_p = 0; nc_p < num_plane_efficiencies; ++nc_p)
+		{
+			nc_read.read(reinterpret_cast<char*>(&nc_plane[nc_p]),
+				sizeof(float));
+		}
+		
 		nc_read.seekg(3095517 * 4, nc_read.beg);
-
 		for (int nc_c = 0; nc_c < num_crystals_all; nc_c++) {
 			nc_read.read(reinterpret_cast<char*>(&nc_crys[nc_c]),
 					sizeof(float));
@@ -184,6 +203,7 @@ int main(int argc, char **argv) {
 	float *add_fac_out = new float[BUFFER_SIZE];
 	float *add_fac = new float[BUFFER_SIZE];
 	float *mul_fac = new float [BUFFER_SIZE];
+	float *attn_fac = new float [BUFFER_SIZE];
 
 	int num_buffers_read = 1;
 	int buffer_indx = 0;
@@ -195,6 +215,7 @@ int main(int argc, char **argv) {
 		int read_ct = fread(pids_in, sizeof(ids), BUFFER_SIZE, pInputFile_lm);
 		fread(add_fac, sizeof(float), BUFFER_SIZE, pInputFile_add_fac);
 		fread(mul_fac, sizeof(float), BUFFER_SIZE, pInputFile_mul_fac);
+		fread(attn_fac, sizeof(float), BUFFER_SIZE, pInputFile_attn_fac);
 		//cout << "Events in this buffer (read_ct): "<< read_ct << endl;
 
 		for (int i = 0; i < read_ct; ++i)
@@ -226,11 +247,26 @@ int main(int argc, char **argv) {
 				set_zero_ct++;
 			}
 
-			stemp = stemp*scaling_factor;
-			stemp = stemp / ( nc_crys[axCrysA + 672*txCrysA] * nc_crys[axCrysB + 672*txCrysB]);
+			//divide stemp by mul_fac (apply dead time and decay correction)
+			if(mul_fac[i] != 0){
+				stemp /= mul_fac[i];
+			}else{
+				stemp = 0;
+			}
 			
-			stemp = stemp * mul_fac[i];			// apply dead time and decay correction to scatters (randoms already have it)
-			float rtemp = add_fac[i];			// read in randoms from original add_fac file
+			//divide stemp by crystal normalization i.e. multiply by UIH-defined correction factors
+			stemp *= (nc_crys[axCrysA + 679*txCrysA] * nc_crys[axCrysB + 679*txCrysB]);
+			//divide stemp by plane normalization i.e. multiply by UIH-defined correction factors
+			stemp *= (nc_plane[axCrysA + 679*axCrysB]);
+
+			//divide stemp by attn_fac
+			if (attn_fac[i] !=0){ // catch dividing by zero. Should theoretically never happen as attenuation is never zero, even in air
+				stemp /= attn_fac[i];
+			}else{
+				stemp = 0;
+			}
+
+			float rtemp = add_fac[i];			// read in randoms from add_fac file
 			rtemp = rtemp + stemp;				// add scatters and randoms
 			
 			add_fac_out[i]=rtemp;
