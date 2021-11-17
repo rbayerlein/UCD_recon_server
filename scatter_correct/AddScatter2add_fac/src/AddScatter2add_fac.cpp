@@ -33,8 +33,8 @@ struct ids {
 
 int main(int argc, char **argv) {
 
-	if (argc != 6 ) {
-		cout << "usage: " << argv[0] << " [lm_folder_name] " << " [scaled_sino] " << " [user_name] " << " [index_blockpairs_transaxial_2x91x60_int16] " << " [nc_file]" << endl;
+	if (argc != 7 ) {
+		cout << "usage: " << argv[0] << " [lm_folder_name]  [scaled_sino]  [user_name]  [index_blockpairs_transaxial_2x91x60_int16]  [nc_file]  [frame_number]" << endl;
 		cerr << "not enough input parameters" << endl;
 		exit(1);
 	}
@@ -44,20 +44,25 @@ int main(int argc, char **argv) {
 	string infile_fullpath = argv[1];
 	cout << "-> opening list-mode files from folder " << infile_fullpath << endl;
 
-	string lm_file_name_raw = "/lm_reorder_f0_prompts";	// LATER this SHOULD be created using the frame number passed to this executable!
+	int frame_number = atoi(argv[6]);
+	stringstream ss_fn;
+	ss_fn << "/lm_reorder_f" << frame_number << "_prompts";
+	string lm_file_name_raw = ss_fn.str();
 
-	stringstream ss_lm_file, ss_add_fac, ss_mul_fac, ss_add_fac_out, ss_attn_fac;
+	stringstream ss_lm_file, ss_add_fac, ss_mul_fac, ss_add_fac_out, ss_attn_fac, ss_scat_fac;
 	ss_lm_file << infile_fullpath << lm_file_name_raw << ".lm";
 	ss_add_fac << infile_fullpath << lm_file_name_raw << ".add_fac";
 	ss_add_fac_out << infile_fullpath << lm_file_name_raw << ".add_fac_out";	// for writing output
-	ss_mul_fac << infile_fullpath << lm_file_name_raw << ".mul_fac";
+	ss_mul_fac << infile_fullpath << lm_file_name_raw << ".mul_fac.original";	// use original, since the other one contains only ones
 	ss_attn_fac << infile_fullpath << lm_file_name_raw << ".attn_fac";
+	ss_scat_fac << infile_fullpath << lm_file_name_raw << ".scat_fac";
 	
 	string infile_lm = ss_lm_file.str();
 	string infile_add_fac = ss_add_fac.str();
 	string infile_mul_fac = ss_mul_fac.str();
 	string infile_attn_fac = ss_attn_fac.str();
 	string outfile_add_fac = ss_add_fac_out.str();
+	string outfile_scat_fac = ss_scat_fac.str();
 
 	// always use original add_fac file coming from the read_lm executable 
 	// check if original file exists
@@ -104,6 +109,12 @@ int main(int argc, char **argv) {
 		exit(1);
 	}	
 
+	FILE *pOutputFile_scat_fac =  fopen(outfile_scat_fac.c_str(), "wb");
+	if (pOutputFile_scat_fac == NULL) { // check return value of file pointer
+		cerr << outfile_scat_fac << " cannot be opened." << endl;
+		exit(1);
+	}	
+
 	cout << "-> opening scatter sino " << endl;
 	string scatter_sino_path = argv[2];
 	ifstream scatter_sino_read; 
@@ -112,8 +123,8 @@ int main(int argc, char **argv) {
 		cout << "could not open scatter sino" <<  endl;
 		exit(1); 
 	}
-	vector<double> scatter_sino(num_bins_sino_block * num_tx_block_ring * num_tx_block_ring);
-	for (int sci=0;  sci<(num_bins_sino_block * num_tx_block_ring * num_tx_block_ring); sci++) {
+	vector<double> scatter_sino(num_bins_sino_block * num_ax_block_ring * num_ax_block_ring);
+	for (int sci=0;  sci<(num_bins_sino_block * num_ax_block_ring * num_ax_block_ring); sci++) {
 		scatter_sino_read.read(reinterpret_cast<char*>(&scatter_sino[sci]), sizeof(double));
 	}
 	scatter_sino_read.close();
@@ -183,7 +194,7 @@ int main(int argc, char **argv) {
 			nc_read.read(reinterpret_cast<char*>(&nc_plane[nc_p]),
 				sizeof(float));
 		}
-		
+
 		nc_read.seekg(3095517 * 4, nc_read.beg);
 		for (int nc_c = 0; nc_c < num_crystals_all; nc_c++) {
 			nc_read.read(reinterpret_cast<char*>(&nc_crys[nc_c]),
@@ -204,6 +215,7 @@ int main(int argc, char **argv) {
 	float *add_fac = new float[BUFFER_SIZE];
 	float *mul_fac = new float [BUFFER_SIZE];
 	float *attn_fac = new float [BUFFER_SIZE];
+	float *scat_fac = new float [BUFFER_SIZE];
 
 	int num_buffers_read = 1;
 	int buffer_indx = 0;
@@ -212,10 +224,15 @@ int main(int argc, char **argv) {
 	while(!feof(pInputFile_lm)){
 		//cout << "----> reading buffer number " << num_buffers_read << endl;
 
+		// ******************************************************************************************************
+		//		if(num_buffers_read > 1) break; 		// REMOVE THIS LINE - JUST FOR DEBUGGING!! FIXME
+		// ******************************************************************************************************
+
 		int read_ct = fread(pids_in, sizeof(ids), BUFFER_SIZE, pInputFile_lm);
 		fread(add_fac, sizeof(float), BUFFER_SIZE, pInputFile_add_fac);
 		fread(mul_fac, sizeof(float), BUFFER_SIZE, pInputFile_mul_fac);
 		fread(attn_fac, sizeof(float), BUFFER_SIZE, pInputFile_attn_fac);
+		fread(scat_fac, sizeof(float), BUFFER_SIZE, pOutputFile_scat_fac);
 		//cout << "Events in this buffer (read_ct): "<< read_ct << endl;
 
 		for (int i = 0; i < read_ct; ++i)
@@ -246,7 +263,7 @@ int main(int argc, char **argv) {
 				stemp = 0.0;
 				set_zero_ct++;
 			}
-
+	
 			//divide stemp by mul_fac (apply dead time and decay correction)
 			if(mul_fac[i] != 0){
 				stemp /= mul_fac[i];
@@ -266,21 +283,28 @@ int main(int argc, char **argv) {
 				stemp = 0;
 			}
 
-			float rtemp = add_fac[i];			// read in randoms from add_fac file
-			rtemp = rtemp + stemp;				// add scatters and randoms
+			scat_fac[i] = stemp;				// write scatter correction factor to file
+
+			float rtemp = add_fac[i];			// read in randoms from original add_fac file containing normalization, attenuation and dead time
 			
-			add_fac_out[i]=rtemp;
+			add_fac_out[i] = rtemp + stemp;		// add scatters and randoms and save them to the output add_fac variable
 			buffer_indx++;
 
 			if(buffer_indx == BUFFER_SIZE){
 				fwrite(add_fac_out, sizeof(float), BUFFER_SIZE, pOutputFile_add_fac);
+				fwrite(scat_fac , sizeof(float), BUFFER_SIZE, pOutputFile_scat_fac);
 				buffer_indx = 0; // reset index
+
 			}
+
 		}
 
 		num_buffers_read++;
 	}
+
+
 	fwrite(add_fac_out, sizeof(float), buffer_indx, pOutputFile_add_fac);
+	fwrite(scat_fac , sizeof(float), BUFFER_SIZE, pOutputFile_scat_fac);
 	cout << "set zero counter: "<< set_zero_ct << " (for debugging only)" << endl;
 
 	// re-name original file and save new file under original name
@@ -306,10 +330,12 @@ int main(int argc, char **argv) {
 	cout << "-> closing all files" << endl;
 	delete[] pids_in;
 	delete[] add_fac_out;
+	delete[] scat_fac;
 	fclose(pInputFile_lm);
 	fclose(pInputFile_mul_fac);
 	fclose(pInputFile_add_fac);
 	fclose(pOutputFile_add_fac);
+	fclose(pOutputFile_scat_fac);
 
 	cout << "done" << endl;
 

@@ -15,6 +15,14 @@ Subsample::Subsample(std::string s, int t) /*!< Takes the full path to the .raw 
 	, firstTimeStamp(t)
 {
 	createLogFile = false;
+	//pre-initialize LUT with zeros
+	for (int i = 0; i < 679; ++i)
+	{
+		for (int j = 0; j < 679; ++j)
+		{
+			ExposureLUT[i][j] = 0;
+		}
+	}
 	Initialize();
 
 }
@@ -110,7 +118,7 @@ void Subsample::Initialize(){
 	}
 
 	cout << "first time stamp set: \t" << firstTimeStamp << "sec = " << (int)firstTimeStamp/3600 << "h:" << ((int)firstTimeStamp%3600)/60 << "min:" << ((int)firstTimeStamp%3600)%60 << "s" << endl;
-
+	cout << "will create exposure LUT next"<< endl;
 
 // fill log file if desired
 	if (createLogFile)
@@ -133,8 +141,18 @@ void Subsample::Initialize(){
 		}
 
 		o_LOG << "first time stamp set: \t" << firstTimeStamp << "sec = " << (int)firstTimeStamp/3600 << "h:" << ((int)firstTimeStamp%3600)/60 << "min:" << ((int)firstTimeStamp%3600)%60 << "s" << endl;
+		o_LOG << "will create exposure LUT next"<< endl;
+		
+	}
+
+	FillExposureTable();	// fill LUT with amount of time each crystal ring pair is exposed to activity and contributes to the list mode data set
+
+	cout << "done" << endl;
+	if (createLogFile){
+		o_LOG << "done" << endl;
 		o_LOG.close();
-	}	
+	}
+
 }
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
@@ -214,3 +232,22 @@ int Subsample::GetParameterValue(string s){
 	cout << "; value: " << val << endl;
 	return val;
 }
+
+//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
+
+void Subsample::FillExposureTable(){
+	// exposure time is in seconds
+	// loop over all bed positions
+	for (int bed = 1; bed < num_beds+1; ++bed)
+	{
+//		cout << "bed " << bed << endl;
+		int this_bed_start = start_ring + (bed-1)*(rings_per_bed-bed_overlap);
+		int this_bed_end = this_bed_start + rings_per_bed-1;
+//		cout << "this_bed_start: " << this_bed_start << "; this_bed_end: " << this_bed_end << endl;
+		for(int i = this_bed_start; i <this_bed_end+1; ++i){
+			for(int j = this_bed_start; j <this_bed_end+1; ++j){
+				ExposureLUT[i-1][j-1] += time_per_bed*num_cycles;	// [i-1] and [j-1] because C++ uses zero indexing
+			}
+		}
+	}// end of loop over bed positions
+}// end of function bracket

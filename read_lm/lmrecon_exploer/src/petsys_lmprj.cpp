@@ -2080,6 +2080,9 @@ void ListModeProjector::doFProj(Image<float>& proj,
 
     // printf("switch-case SIDDON....\n");
 
+        SystemLog::write("FP using SIDDON, initialized number of threads: %d (fp) \n", 
+            Projector::NUMBER_OF_THREADS_FP
+        );
 #if USE_OMP
         #pragma omp parallel for private(i, e, p0x, p0y, p0z, p1x, p1y, p1z) num_threads(Projector::NUMBER_OF_THREADS_FP)
 #endif   
@@ -2106,6 +2109,9 @@ void ListModeProjector::doFProj(Image<float>& proj,
     break;
 
     case BRESENHAM: {
+        SystemLog::write("FP using BRESENHAM, initialized number of threads: %d (fp) \n", 
+            Projector::NUMBER_OF_THREADS_FP
+        );
 #if USE_OMP
         #pragma omp parallel for private(i, e, p0x, p0y, p0z, p1x, p1y, p1z) num_threads(Projector::NUMBER_OF_THREADS_FP)
 #endif
@@ -2150,6 +2156,9 @@ void ListModeProjector::doBProj(Image<float>& img,
     switch (ListModeProjector::raytracer_type) {
 
     case SIDDON: {
+        SystemLog::write("BP using SIDDON, initialized number of threads: %d (bp) \n", 
+            Projector::NUMBER_OF_THREADS_BP
+        );
 #if USE_OMP
         #pragma omp parallel for private(i, e, p0x, p0y, p0z, p1x, p1y, p1z) num_threads(Projector::NUMBER_OF_THREADS_BP)
 #endif
@@ -2169,6 +2178,9 @@ void ListModeProjector::doBProj(Image<float>& img,
     break;
 
     case BRESENHAM: {
+        SystemLog::write("BP using BRESENHAM, initialized number of threads: %d (bp) \n", 
+            Projector::NUMBER_OF_THREADS_BP
+        );
 #if USE_OMP
         #pragma omp parallel for private(i, e, p0x, p0y, p0z, p1x, p1y, p1z) num_threads(Projector::NUMBER_OF_THREADS_BP)
 #endif

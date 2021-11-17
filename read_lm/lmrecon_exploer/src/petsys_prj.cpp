@@ -4,8 +4,8 @@
 // int Projector::NUMBER_OF_THREADS_BP = 32;
 
 
-int Projector::NUMBER_OF_THREADS_FP = 64;
-int Projector::NUMBER_OF_THREADS_BP = 64;
+int Projector::NUMBER_OF_THREADS_FP = 48;
+int Projector::NUMBER_OF_THREADS_BP = 48;
 
 
 Projector::XtalPair Projector::createCrystalPairs(const int num_of_detblocks_t,

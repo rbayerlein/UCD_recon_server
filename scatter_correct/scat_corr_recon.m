@@ -1,9 +1,4 @@
 function scat_corr_recon(frame_num)
-%% Description
-% function to run recons and handle simset scatter simulations.
-% created by Reimund Bayerlein
-% 10-07-2021, UC Davis
-
 %% get access to handles
 disp('reading in parameters from handler');
 handles_name = '/home/rbayerlein/code/explorer-master/handles_scheduler.mat'; 
@@ -65,7 +60,7 @@ fprintf(fid_log, 'activity image folder path: %sY (Y = iteration number)\n', dir
 img_size = [239,239,679];
 vox_size = [2.85,2.85,2.85]; % mm
 
-bin_phg = [install_dir, 'simset/2.9.2/bin/phg'];
+bin_phg = [install_dir, 'simset/2.9.2_new_mat_table/bin/phg'];
 bin_hist2lm = [install_dir, 'simset/data_processing/hist2lm/bin/hist2lm'];
 bin_lm2blocksino =[install_dir, 'simset/data_processing/lm2blocksino_old/bin/lm2blocksino'];
 %bin_scatter_add_fac =[install_dir, 'simset/data_processing/scatter_add_fac/bin/scatter_add_fac']; %#ok
@@ -80,7 +75,7 @@ hu_limits = [-1000,2000]; % lower and upper HU limits
 fname_water = 'u_water_511keV.dat'; % 511 keV water density LUT
 
 % a-map
-n_bins = 22100; % number of available bins - same as number of materials
+n_bins = 2301; % number of available bins - same as number of materials
 
 num_threads_avail = 44;    % actually it's 48 but should leave a few empty to prevent lagging. 
 num_threads_per_frame = num_threads_avail;
@@ -134,7 +129,7 @@ end
 
 % inform the user
 if ~scatter_data_exist
-    fprintf(fid_log, 'No prior scatter correction data found. Will create new data with simset (takes ~4h per iteration!!)\n');
+    fprintf(fid_log, 'No prior scatter correction data found. Will create new data with simset (can take up to 4h per iteration!!)\n');
     disp('No prior scatter correction data found. Will create new data with simset (takes ~4h per iteration!!)');
     pause(5.0);
 else
@@ -222,7 +217,7 @@ if scatter_data_exist
     % "usage: " << argv[0] << " [lm_folder_name] " << " [scaled_sino] " << " [user_name] " << " [index_blockpairs_transaxial_2x91x60_int16] " << " [nc_file]"
     nc_file = [handles.path_choose_server, handles.fname_choose_base, '1.nc'];
     lm_data_folder = [handles.server_recon_data_dir, '/', outfolder_server_temp];
-    cmd_as2af = sprintf('%s %s %s %s %s %s', AddScatter2AddFac, lm_data_folder, fname_sino_scaled, user, fname_lut, nc_file);
+    cmd_as2af = sprintf('%s %s %s %s %s %s %d', AddScatter2AddFac, lm_data_folder, fname_sino_scaled, user, fname_lut, nc_file, frame_num);
     fprintf(fid_log, 'command: %s\n', cmd_as2af);
     system(cmd_as2af);
     pause(0.1);
@@ -773,7 +768,7 @@ for iter = 1 : handles.osem_iter
     % "usage: " << argv[0] << " [lm_folder_name] " << " [scaled_sino] " << " [user_name] " << " [index_blockpairs_transaxial_2x91x60_int16] " << " [nc_file]"
     nc_file = [handles.path_choose_server, handles.fname_choose_base, '1.nc'];
     lm_data_folder = [handles.server_recon_data_dir, '/', outfolder_server_temp];
-    cmd_as2af = sprintf('%s %s %s %s %s %s', AddScatter2AddFac, lm_data_folder, fname_sino_scaled, user, fname_lut, nc_file);
+    cmd_as2af = sprintf('%s %s %s %s %s %s %d', AddScatter2AddFac, lm_data_folder, fname_sino_scaled, user, fname_lut, nc_file, frame_num);
     fprintf(fid_log, 'command: %s\n', cmd_as2af);
     system(cmd_as2af);
     pause(0.1);

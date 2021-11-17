@@ -10,7 +10,7 @@ frame_num = frame_number_from_recon_scheduler_server;  % can get this from handl
 
 num_threads = 48; % for forward projector
 
-mumap_fname = 'CTAC_201_mumap_kVp-140_size-239x239x239_vox-2.85x2.85x2.85.img';
+mumap_fname = 'CTAC_201_mumap_kVp-140_size-239x239x679_vox-2.85x2.85x2.85.img';
 
 lm_fp_exp = '/home/rbayerlein/code/explorer-master/read_lm/lmrecon_exploer/app/lm_fp_exp';
 

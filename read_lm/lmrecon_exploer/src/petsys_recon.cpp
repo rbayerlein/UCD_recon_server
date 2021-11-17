@@ -542,14 +542,12 @@ void EMBasedPLReconstructor::run(Projector* projector,
     SystemLog::write("allocating temporary projections, ... ");
     size_t proj_buff_size = projector->allocateProjection(0)->getSize();
     SystemLog::write("length = %lu\n", proj_buff_size);
-    Image<float> y(proj_buff_size);
+    Image<float> y(proj_buff_size);		// Px = forward projected image data
+    Image<float> Px_r_s(proj_buff_size);	// fp image data plus randoms plus scatter (basically plus add_fac)
 
 	SystemLog::write("ready, set, go ... (beta=%.2e) \n", beta);
 	Timer timer;
 	timer.start();
-
-
-
 
     char lk_fname[512];
     sprintf(lk_fname, "%s/%s.likelihood",  // _intermediate_it%d.sub%d", 
@@ -622,6 +620,7 @@ void EMBasedPLReconstructor::run(Projector* projector,
             //
             // P * x
 			y.clear();
+			Px_r_s.clear();
 
             // printf("Debug...\n");
 
@@ -634,15 +633,14 @@ void EMBasedPLReconstructor::run(Projector* projector,
             //         recon_output_filename_prefix, n+1, subset_id);
             // x.write(str0);
 
-
-
-            // char str1[512];
-            // sprintf(str1, "%s/%s.y_intermediate_it%d.sub%d", 
-            //         recon_output_folder,
-            //         recon_output_filename_prefix, n+1, subset_id);
-            // y.write(str1);
-
-
+        	if((recon_output_folder != 0) &&// (n+1 == number_of_iterations) &&
+        	(recon_output_filename_prefix != 0)) {
+	            char str1[512];
+	            sprintf(str1, "%s/%s.Px_it%d.sub%d", 
+	                    recon_output_folder,
+	                    recon_output_filename_prefix, n+1, subset_id);
+	            y.write(str1);
+	        }
 
 
             // get difference
@@ -653,6 +651,7 @@ void EMBasedPLReconstructor::run(Projector* projector,
             for (size_t i = 0; i < y.getSize(); i ++) {
             	//
             	float ytemp = y[i] + (projector->getAdditiveFactor(subset_id))[i];
+            	Px_r_s[i] = ytemp;
                 y[i] = (ytemp > 0.0) ? (projector->getMultiplicativeFactor(subset_id))[i] / ytemp : 0.0;
                 // y[i] = (ytemp > 0.0) ? 1.0 / ytemp : 0.0;
             
@@ -663,7 +662,7 @@ void EMBasedPLReconstructor::run(Projector* projector,
 
                 if (isnan(yp)){
                     yp = 1e-20;
-                } 
+                }
                 else if (isinf(yp)){
                     yp = 1e-20;
                 }
@@ -675,6 +674,14 @@ void EMBasedPLReconstructor::run(Projector* projector,
 //                 printf("event.id=%d, ytemp=%f, y[i]=%f\n", i, ytemp, y[i]);
             }
 
+        	if((recon_output_folder != 0) &&// (n+1 == number_of_iterations) &&
+        	(recon_output_filename_prefix != 0)) {
+	            char str1[512];
+	            sprintf(str1, "%s/%s.Px_r_s_it%d.sub%d", 
+	                    recon_output_folder,
+	                    recon_output_filename_prefix, n+1, subset_id);
+	            Px_r_s.write(str1);
+	        }
 
 
 

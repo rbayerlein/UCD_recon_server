@@ -185,26 +185,6 @@ int main(int argc, char **argv) {
 		crys_read.close();
 	}
 
-/*
-	// open michelogram LUT
-	cout << "-> getting michelogram LUT" << endl;
-	string mich_fullpath = "michel_lut_672x672";
-	ifstream mich_read;
-	mich_read.open(mich_fullpath.c_str(), ios::in | ios::binary);
-	int mich[672][672];
-
-	if (!mich_read){
-		cout << "Could not open michelogram LUT." << endl;
-		exit(1);
-	}else{
-		for(int m_x = 0; m_x < 672; m_x++){
-			for(int m_y = 0; m_y < 672; m_y++){
-				mich_read.read(reinterpret_cast<char*>(&mich[m_x][m_y]), sizeof(int));
-			}
-		}
-	}
-*/
-
 // ooo000OOO000ooo...ooo000OOO000ooo...ooo000OOO000ooo ==== main program start
 
 	// read in events from lm file
@@ -235,18 +215,10 @@ int main(int argc, char **argv) {
 			// get crystal IDs
 			short txCrysA = pids_in[i].txIDA;
 			short txCrysB = pids_in[i].txIDB;
-//			short axCrysA = pids_in[i].axIDA - (pids_in[i].axIDA / num_ax_crys_per_unit_w_gap);
-//			short axCrysB = pids_in[i].axIDB - (pids_in[i].axIDB / num_ax_crys_per_unit_w_gap);
 
 			short axCrysA = pids_in[i].axIDA;
 			short axCrysB = pids_in[i].axIDB;
 
-			// convert to block pids_in
-/*			short txBiA = txCrysA / num_tx_crys_per_block;
-			short axBiA = axCrysA / num_ax_crys_per_block;
-			short txBiB = txCrysB / num_tx_crys_per_block;
-			short axBiB = axCrysB / num_ax_crys_per_block;
-*/
 			// get add_fac from file (i.e. randoms)
 			float rtemp = add_fac[i];
 
@@ -256,12 +228,15 @@ int main(int argc, char **argv) {
 			}else{
 				rtemp = 0;
 			}
+			
 			//divide add_fac by crystal normalization i.e. multiply by UIH-defined correction factors
 			rtemp *= (nc_crys[axCrysA + 679*txCrysA] * nc_crys[axCrysB + 679*txCrysB]);
 			//divide add_fac by plane normalization i.e. multiply by UIH-defined correction factors
 			rtemp *= (nc_plane[axCrysA + 679*axCrysB]);
+
 			//divide add_fac by attn
-			if (attn[i] !=0){ // catch dividing by zero. Should theoretically never happen as attenuation is never zero, even in air
+
+			if (attn[i] !=0){ // catch dividing by zero. Should theoretically never happen as that would correspond to infnite attenuation
 				rtemp /= attn[i];
 			}else{
 				rtemp = 0;
@@ -269,10 +244,6 @@ int main(int argc, char **argv) {
 
 			add_fac_out[i]=rtemp;
 			buffer_indx++;
-
-			// REMOVE THIS LINE!! IT IS JUST FOR DEBUGGING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-			//add_fac_out[i] = 0;
-			// REMOVE THIS LINE!! IT IS JUST FOR DEBUGGING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 			// fill new mul fac file with ones as they are now incorporated into add_fac files.
 			mul_fac_out[i] = 1;

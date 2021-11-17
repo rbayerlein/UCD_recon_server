@@ -1634,9 +1634,18 @@ int main(int argc, char **argv) {
 								//rtemp = rtemp * t_window * 1E-12;
 							} else {
 
-								rtemp = (float) sino_module_r_avg[ind_module1]
-										* ((float) frame_length[frame_num]
-												/ (float) r_frame); // Mean number of randoms of each module pair for the whole recon frame length
+							//	rtemp = (float) sino_module_r_avg[ind_module1]
+							//			* ((float) frame_length[frame_num]
+							//					/ (float) r_frame); // Mean number of randoms of each module pair for the whole recon frame length
+
+
+								rtemp = (float) sino_module_r_avg[ind_module1] * ((float) SUBS.GetTotalLORExposure(axA,axB)*1000) / (float) r_frame;
+								// factor 1000 because exposure time is in seconds and everything else here is in ms.
+
+
+				//				rtemp = (float) sino_module_r_avg[ind_module1] * ((float) SUBS.) UNFINISHED!!!
+
+
 
 								//rtemp = rtemp / (2.0 * (float)num_lor_modpair);
 										// calculate mean num of rand of one LOR (current LOR):

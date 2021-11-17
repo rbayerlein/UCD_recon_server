@@ -57,18 +57,20 @@ while not_done
     ch_lm = true;   % ch_lm = check list mode, i.e. check if list mode files exist
     for k = 1:8
       fname_lm_ch = [handles.lm_outfolder, 'lm_reorder_f', num2str(reconFrames_lm(lm_counter+1)), '_prompts.', num2str(k), '.lm']; 
-      fprintf(fid_log, '\n%s', fname_lm_ch); %toBeDeleted
       if ~exist(fname_lm_ch, 'file');
         ch_lm = false; 
+        fprintf(fid_log, 'list mode file %d not done yet\n', k); fprintf('list mode file %d not done yet\n', k);
       end
     end
     if ch_lm
 
+      fprintf(fid_log, 'done list mode files. \n'); fprintf('done list mode files. \n');
       m = reconFrames_lm(lm_counter);
   	  %andles.server_temp_dir{lm_counter} = outfolder_server_temp; 
       outfolder_server_temp = handles.server_temp_dir{lm_counter}; 
 
-  	  % delete data in the recon data drive on the server
+  	  % create outfolder server temp (the one with the weird name)
+      fprintf(fid_log, 'creating outfolder_server_temp %s\n', outfolder_server_temp); fprintf('creating outfolder_server_temp %s\n', outfolder_server_temp);
       cmd_mkdir = ['cd ', handles.server_recon_data_dir, '; mkdir ',outfolder_server_temp,'; '];
   	  system(cmd_mkdir); 
   	  pause(0.1); 
@@ -183,7 +185,6 @@ while not_done
           str = [handles.recon_path_server, 'lmrecon_tof  ',handles.server_recon_data_dir,'/', outfolder_server_temp,'/lmacc_scanner_parameter_f',num2str(m),'.cfg\n\n'];
         end     
         fprintf(fid,str);
-        fprintf(fid_log, str); %toBeDeleted
         str = ''; 
 
         fclose(fid);
@@ -195,6 +196,7 @@ while not_done
       end  % if condition (subsample ON / OFF)
         
         % move the data to recon server 
+      fprintf(fid_log, 'moving data to recon server directory %s\n', outfolder_server_temp); fprintf('moving data to recon server directory %s\n', outfolder_server_temp);
   	  cmd_mvdata = ['cp -r ', '"',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.1.lm" "',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.1.mul_fac" "',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.1.add_fac" "',...
   		handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.2.lm" "',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.2.mul_fac" "',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.2.add_fac" "',...
   		handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.3.lm" "',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.3.mul_fac" "',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.3.add_fac" "',...
@@ -256,21 +258,19 @@ while not_done
 
   if sum(lm_data_ready(:)) == (length(lm_data_ready)-1)
     lm_done = true; 
+    fprintf(fid_log, 'lm done\n'); fprintf('lm done\n');
   end
 
 
   % check how many images are completed
   img_ind_start = find(recon_frame_done == 0, 1, 'first'); 
   img_ind_end = min([(img_ind_start+3*handles.max_par_recon), length(handles.reconFrames)]); % max_par_recon = 12
-  fprintf(fid_log,'\nimg_ind_start: %d, img_ind_end: %d\n', img_ind_start, img_ind_end); %toBeDeleted
 
   for kk = img_ind_start:img_ind_end
     fprintf(fid_log, 'frame %d done: %d\n', kk, double(recon_frame_done(kk)));%toBeDeleted
     if recon_frame_done(kk) < 0.5
       ch_img = true;
-      for ii = handles.osem_iter:handles.osem_iter
-        fprintf(fid_log, 'check image for iteration ii = %d\n', ii);%toBeDeleted
-        
+      for ii = handles.osem_iter:handles.osem_iter        
         if subsample_on
           fname_img_ch = [handles.server_recon_data_dir, '/', handles.server_temp_dir{1},'/',handles.fname_recon, '_f', num2str(handles.reconFrames(kk)), '.intermediate.',num2str(ii)];
           fname_img_ch_all = [handles.server_recon_data_dir, '/', handles.server_temp_dir{1},'/',handles.fname_recon, '_f', num2str(handles.reconFrames(kk)), '.intermediate.*'];
@@ -314,13 +314,13 @@ while not_done
           cmd_mv3 = ['cp ', handles.server_recon_data_dir, '/', handles.server_temp_dir{kk}, '/*prompts.mul_fac ', handles.lm_outfolder ];
           cmd_mv4 = ['cp ', handles.server_recon_data_dir, '/', handles.server_temp_dir{kk}, '/*prompts.lm ', handles.lm_outfolder ];
           fprintf(fid_log, 'copying lm files to lm_outfolder:\n%s\n', cmd_mv); fprintf('copying lm files to lm_outfolder');
-          system(cmd_mv); pause(0.1);
+         % system(cmd_mv); pause(0.1);
           fprintf(fid_log, 'copying lm files to lm_outfolder:\n%s\n', cmd_mv2); fprintf('copying lm files to lm_outfolder:\n%s\n', cmd_mv2);
-          system(cmd_mv2); pause(0.1);
+         % system(cmd_mv2); pause(0.1);
           fprintf(fid_log, 'copying lm files to lm_outfolder:\n%s\n', cmd_mv3); fprintf('copying lm files to lm_outfolder:\n%s\n', cmd_mv3);
-          system(cmd_mv3); pause(0.1);
+         % system(cmd_mv3); pause(0.1);
           fprintf(fid_log, 'copying lm files to lm_outfolder:\n%s\n', cmd_mv4); fprintf('copying lm files to lm_outfolder:\n%s\n', cmd_mv4);
-          system(cmd_mv4); pause(0.1); 
+        %  system(cmd_mv4); pause(0.1); 
 
           % wipe the temporary dir on the server
           cmd_clean = ['cd ', handles.server_recon_data_dir,' && rm -r ', handles.server_temp_dir{kk},'/ ',]; 
@@ -336,6 +336,7 @@ while not_done
 
   if sum(recon_frame_done(:)) == length(handles.reconFrames)
     not_done = false; 
+    fprintf(fid_log, 'recon frames done\n'); fprintf('recon frames done\n');
   end
     
  
@@ -365,7 +366,7 @@ while not_done
             cmd_runrecon = [handles.server_recon_data_dir,'/',handles.server_temp_dir{N},'/run_lmrecon_explorer_f',num2str(handles.reconFrames(N)),' & ']; 
       end
 	  %cmd_runrecon = ['ssh ', handles.user, '@', handles.server_name, ' "cd ', handles.recon_path_server,' ; ',cmd_combine,' ; cd ', handles.server_recon_data_dir,'/',outfolder_server_temp,' ; ./run_lmrecon_explorer_f',num2str(m),'"; ', cmd_imgreturn, ' & ']; 
-
+      fprintf(fid_log, 'starting recon for frame %d\n', handles.reconFrames(N)); fprintf('starting recon for frame %d\n', handles.reconFrames(N));
       system(cmd_runrecon); 
       pause(0.1); 
      
