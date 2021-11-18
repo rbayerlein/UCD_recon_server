@@ -75,10 +75,14 @@ hu_limits = [-1000,2000]; % lower and upper HU limits
 fname_water = 'u_water_511keV.dat'; % 511 keV water density LUT
 
 % a-map
-n_bins = 2301; % number of available bins - same as number of materials
+n_bins = 2301; % number of available bins for a-map sampling - same as number of materials
 
 num_threads_avail = 44;    % actually it's 48 but should leave a few empty to prevent lagging. 
 num_threads_per_frame = num_threads_avail;
+
+% detector normalization files
+crys_eff = [handles.dcm_dir_init_ucd_server, '/crys_eff_679x840'];
+plane_eff = [handles.dcm_dir_init_ucd_server, '/plane_eff_679x679'];
 
 %% check if scatter correction data already exist
 dir_scatter_data = [handles.study_dir_server, 'UCD/Scatter_Data'];
@@ -217,7 +221,7 @@ if scatter_data_exist
     % "usage: " << argv[0] << " [lm_folder_name] " << " [scaled_sino] " << " [user_name] " << " [index_blockpairs_transaxial_2x91x60_int16] " << " [nc_file]"
     nc_file = [handles.path_choose_server, handles.fname_choose_base, '1.nc'];
     lm_data_folder = [handles.server_recon_data_dir, '/', outfolder_server_temp];
-    cmd_as2af = sprintf('%s %s %s %s %s %s %d', AddScatter2AddFac, lm_data_folder, fname_sino_scaled, user, fname_lut, nc_file, frame_num);
+    cmd_as2af = sprintf('%s %s %s %s %s %s %s %d', AddScatter2AddFac, lm_data_folder, fname_sino_scaled, user, fname_lut, crys_eff, plane_eff, frame_num);
     fprintf(fid_log, 'command: %s\n', cmd_as2af);
     system(cmd_as2af);
     pause(0.1);
@@ -275,7 +279,7 @@ for iter = 1 : handles.osem_iter
     waitcounter=0; % just for control
     waittime = 10.0;
     while not_done  
-        msg = ['Estimated time elapsed since start: ', num2str(waitcounter*waittime)];
+        msg = ['Estimated time elapsed since start: ', num2str(waitcounter*waittime), ' s'];
         fprintf(fid_log, '%s\n', msg); disp(msg);
 
         waitcounter = waitcounter+1;
@@ -768,7 +772,7 @@ for iter = 1 : handles.osem_iter
     % "usage: " << argv[0] << " [lm_folder_name] " << " [scaled_sino] " << " [user_name] " << " [index_blockpairs_transaxial_2x91x60_int16] " << " [nc_file]"
     nc_file = [handles.path_choose_server, handles.fname_choose_base, '1.nc'];
     lm_data_folder = [handles.server_recon_data_dir, '/', outfolder_server_temp];
-    cmd_as2af = sprintf('%s %s %s %s %s %s %d', AddScatter2AddFac, lm_data_folder, fname_sino_scaled, user, fname_lut, nc_file, frame_num);
+    cmd_as2af = sprintf('%s %s %s %s %s %s %s %d', AddScatter2AddFac, lm_data_folder, fname_sino_scaled, user, fname_lut, crys_eff, plane_eff, frame_num);
     fprintf(fid_log, 'command: %s\n', cmd_as2af);
     system(cmd_as2af);
     pause(0.1);

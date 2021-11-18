@@ -19,9 +19,10 @@ int num_ax_crys_per_unit_w_gap = 85;
 int num_ax_crys_per_block = 6;
 int num_tx_crys_per_block = 7;
 int num_lor_blkpair = 903;
-int num_crystals_all = 564480;
-int num_plane_efficiencies = 461041; // 679*679
-
+int num_crystals_all_wo_gap = 564480;	//672*840
+int num_plane_efficiencies_wo_gap = 451584; // 672*672
+int num_plane_efficiencies = 461041; //679*679
+int num_crystals_all = 570360; // 679*840
 
 struct Lut {
 	short nv,nu;
@@ -33,8 +34,8 @@ struct ids {
 
 int main(int argc, char **argv) {
 
-	if (argc != 7 ) {
-		cout << "usage: " << argv[0] << " [lm_folder_name]  [scaled_sino]  [user_name]  [index_blockpairs_transaxial_2x91x60_int16]  [nc_file]  [frame_number]" << endl;
+	if (argc != 8 ) {
+		cout << "usage: " << argv[0] << " [lm_folder_name]  [scaled_sino]  [user_name]  [index_blockpairs_transaxial_2x91x60_int16]  [crys_eff]  [plane_eff]  [frame_number]" << endl;
 		cerr << "not enough input parameters" << endl;
 		exit(1);
 	}
@@ -44,7 +45,7 @@ int main(int argc, char **argv) {
 	string infile_fullpath = argv[1];
 	cout << "-> opening list-mode files from folder " << infile_fullpath << endl;
 
-	int frame_number = atoi(argv[6]);
+	int frame_number = atoi(argv[7]);
 	stringstream ss_fn;
 	ss_fn << "/lm_reorder_f" << frame_number << "_prompts";
 	string lm_file_name_raw = ss_fn.str();
@@ -165,44 +166,61 @@ int main(int argc, char **argv) {
 		blk_idx[plut[i].nu][plut[i].nv] = i;
 	}
 
-	cout << "-> getting normalization file from study directory: " << endl ;
-	string ncfile_fullpath = argv[5];
-	cout << ncfile_fullpath << endl;
+	//here read in crys eff and plane eff instead of nc file.  
+	cout <<"-> getting crystal efficiencies from file: " << endl;
+	string crys_fullpath = argv[5];
+	cout << "\t" << crys_fullpath << endl;
+	ifstream crys_read;
+	crys_read.open(crys_fullpath.c_str(), ios::in | ios::binary);
 
-	ifstream nc_read;
-	nc_read.open(ncfile_fullpath.c_str(), ios::in | ios::binary);
-	vector<float> nc_crys(num_crystals_all);
+	cout <<"-> getting plane efficiencies from file: " << endl;
+	string plane_fullpath = argv[6];
+	cout << "\t" << plane_fullpath << endl;
+	ifstream plane_read;
+	plane_read.open(plane_fullpath.c_str(), ios::in | ios::binary);
+
+	vector<float> nc_crys(num_crystals_all); 
 	vector<float> nc_plane(num_plane_efficiencies);
 
-	bool use_nc_default = false;
-	if (!nc_read) {
-		cout << "Could not open nc file, use default values (1) \n";
-		use_nc_default = true;
-		for (int nci = 0; nci < num_crystals_all; nci++) {
+	bool use_plane_default = false;
+	if (!plane_read) {
+		cout << "Could not open plane efficiencies file, use default values (1) \n";
+		use_plane_default = true;
+		for (int nci = 0; nci < num_plane_efficiencies; ++nci) {
+			nc_plane[nci] = 1.0;
+		}
+	}
+
+	bool use_crys_default = false;
+	if (!crys_read) {
+		cout << "Could not open crystal efficiencies file, use default values (1) \n";
+		use_crys_default = true;
+		for (int nci = 0; nci < num_crystals_all; ++nci) {
 			nc_crys[nci] = 1.0;
 		}
-		for (int i = 0; i < num_plane_efficiencies; ++i)
-		{
-			nc_plane[i] = 1.0;
-		}
 	}
 
-	if (!use_nc_default) {
-		nc_read.seekg( 2079453 * 4, nc_read.beg);
-		for (int nc_p = 0; nc_p < num_plane_efficiencies; ++nc_p)
-		{
-			nc_read.read(reinterpret_cast<char*>(&nc_plane[nc_p]),
-				sizeof(float));
+	if (!use_plane_default) {
+		// get plane efficiencies
+	//	nc_read.seekg( 2079453 * 4, nc_read.beg);
+		for (int p = 0;  p < num_plane_efficiencies; ++p) {
+			plane_read.read(reinterpret_cast<char*>(&nc_plane[p]), sizeof(float));
 		}
-
-		nc_read.seekg(3095517 * 4, nc_read.beg);
-		for (int nc_c = 0; nc_c < num_crystals_all; nc_c++) {
-			nc_read.read(reinterpret_cast<char*>(&nc_crys[nc_c]),
-					sizeof(float));
+		plane_read.close();
+	}
+	if (!use_crys_default){
+		//get crystal efficiencies
+	//	nc_read.seekg(3095517 * 4, nc_read.beg);
+		for (int c = 0; c < num_crystals_all; c++) {
+			crys_read.read(reinterpret_cast<char*>(&nc_crys[c]), sizeof(float));
 		}
+		crys_read.close();
 	}
 
-
+	for (int i = 0; i < 100; ++i)
+	{
+		cout << i << "\t" << nc_plane[i] << endl;
+	}
 
 // ooo000OOO000ooo...ooo000OOO000ooo...ooo000OOO000ooo ==== main program start
 
@@ -219,20 +237,15 @@ int main(int argc, char **argv) {
 
 	int num_buffers_read = 1;
 	int buffer_indx = 0;
-	int set_zero_ct = 0; // for debugging only
 	
 	while(!feof(pInputFile_lm)){
 		//cout << "----> reading buffer number " << num_buffers_read << endl;
-
-		// ******************************************************************************************************
-		//		if(num_buffers_read > 1) break; 		// REMOVE THIS LINE - JUST FOR DEBUGGING!! FIXME
-		// ******************************************************************************************************
 
 		int read_ct = fread(pids_in, sizeof(ids), BUFFER_SIZE, pInputFile_lm);
 		fread(add_fac, sizeof(float), BUFFER_SIZE, pInputFile_add_fac);
 		fread(mul_fac, sizeof(float), BUFFER_SIZE, pInputFile_mul_fac);
 		fread(attn_fac, sizeof(float), BUFFER_SIZE, pInputFile_attn_fac);
-		fread(scat_fac, sizeof(float), BUFFER_SIZE, pOutputFile_scat_fac);
+//		fread(scat_fac, sizeof(float), BUFFER_SIZE, pOutputFile_scat_fac);
 		//cout << "Events in this buffer (read_ct): "<< read_ct << endl;
 
 		for (int i = 0; i < read_ct; ++i)
@@ -240,8 +253,10 @@ int main(int argc, char **argv) {
 			// get crystal IDs
 			short txCrysA = pids_in[i].txIDA;
 			short txCrysB = pids_in[i].txIDB;
-			short axCrysA = pids_in[i].axIDA - (pids_in[i].axIDA / num_ax_crys_per_unit_w_gap);
+			short axCrysA = pids_in[i].axIDA; - (pids_in[i].axIDA / num_ax_crys_per_unit_w_gap);
 			short axCrysB = pids_in[i].axIDB - (pids_in[i].axIDB / num_ax_crys_per_unit_w_gap);
+			short axCrysA_w_gap = pids_in[i].axIDA;
+			short axCrysB_w_gap = pids_in[i].axIDB;
 
 			// convert to block pids_in
 			short txBiA = txCrysA / num_tx_crys_per_block;
@@ -261,33 +276,43 @@ int main(int argc, char **argv) {
 				stemp = stemp * tof_wt[pids_in[i].tof+64];
 			}else{
 				stemp = 0.0;
-				set_zero_ct++;
 			}
-	
-			//divide stemp by mul_fac (apply dead time and decay correction)
+			float pure_stemp = stemp;			// save the pure stemp, which does not contain added randoms, save further down in "scat_fac[i]"
+
+			// add randoms (uncorrected for attenuetion, etc!)
+			float rtemp = add_fac[i];			// read in randoms from ORIGINAL add_fac file NOT containing normalization, attenuation and dead time!
+			stemp = stemp + rtemp;				// add scatters and randoms 
+
+			//divide by mul_fac (apply dead time and decay correction)
 			if(mul_fac[i] != 0){
 				stemp /= mul_fac[i];
+				pure_stemp /= mul_fac[i];
 			}else{
 				stemp = 0;
+				pure_stemp = 0;
 			}
 			
 			//divide stemp by crystal normalization i.e. multiply by UIH-defined correction factors
-			stemp *= (nc_crys[axCrysA + 679*txCrysA] * nc_crys[axCrysB + 679*txCrysB]);
+			pure_stemp *= (nc_crys[axCrysA_w_gap + 679*txCrysA] * nc_crys[axCrysB_w_gap + 679*txCrysB]);
+			stemp *= (nc_crys[axCrysA_w_gap + 679*txCrysA] * nc_crys[axCrysB_w_gap + 679*txCrysB]);
+
 			//divide stemp by plane normalization i.e. multiply by UIH-defined correction factors
-			stemp *= (nc_plane[axCrysA + 679*axCrysB]);
+			pure_stemp *= (nc_plane[axCrysA_w_gap + 679*axCrysB_w_gap]);
+			stemp *= (nc_plane[axCrysA_w_gap + 679*axCrysB_w_gap]);
+
 
 			//divide stemp by attn_fac
 			if (attn_fac[i] !=0){ // catch dividing by zero. Should theoretically never happen as attenuation is never zero, even in air
 				stemp /= attn_fac[i];
+				pure_stemp /= attn_fac[i];
 			}else{
 				stemp = 0;
+				pure_stemp = 0;
 			}
 
-			scat_fac[i] = stemp;				// write scatter correction factor to file
+			scat_fac[i] = pure_stemp;	// write pure scatter correction factor to file
+			add_fac_out[i] = stemp;		// save scatters and randoms to the output add_fac variable
 
-			float rtemp = add_fac[i];			// read in randoms from original add_fac file containing normalization, attenuation and dead time
-			
-			add_fac_out[i] = rtemp + stemp;		// add scatters and randoms and save them to the output add_fac variable
 			buffer_indx++;
 
 			if(buffer_indx == BUFFER_SIZE){
@@ -304,8 +329,7 @@ int main(int argc, char **argv) {
 
 
 	fwrite(add_fac_out, sizeof(float), buffer_indx, pOutputFile_add_fac);
-	fwrite(scat_fac , sizeof(float), BUFFER_SIZE, pOutputFile_scat_fac);
-	cout << "set zero counter: "<< set_zero_ct << " (for debugging only)" << endl;
+	fwrite(scat_fac , sizeof(float), buffer_indx, pOutputFile_scat_fac);
 
 	// re-name original file and save new file under original name
 	cout << "-> deleting existing *.add_fac and renaming new file to *.add_fac" << endl;
@@ -330,7 +354,10 @@ int main(int argc, char **argv) {
 	cout << "-> closing all files" << endl;
 	delete[] pids_in;
 	delete[] add_fac_out;
+	delete[] add_fac;
+	delete[] attn_fac;
 	delete[] scat_fac;
+	delete[] mul_fac;
 	fclose(pInputFile_lm);
 	fclose(pInputFile_mul_fac);
 	fclose(pInputFile_add_fac);
@@ -339,4 +366,16 @@ int main(int argc, char **argv) {
 
 	cout << "done" << endl;
 
+
+/*
+	FILE *pInputFile_TEST = fopen(infile_add_fac.c_str(), "rb");
+	float *add_fac_TEST = new float[BUFFER_SIZE];
+	while(!feof(pInputFile_TEST)){
+		int read_ct = fread(add_fac_TEST, sizeof(float), BUFFER_SIZE, pInputFile_TEST);
+		for (int i = 0; i < read_ct; ++i)
+		{
+			if(add_fac_TEST[i] > 10000) cout << add_fac_TEST[i] << endl;
+		}
+	}
+*/
 }

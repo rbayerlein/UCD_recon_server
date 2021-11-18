@@ -185,6 +185,11 @@ int main(int argc, char **argv) {
 		crys_read.close();
 	}
 
+	for (int i = 0; i < 100; ++i)
+	{
+		cout << i << "\t" << nc_plane[i] << endl;
+	}
+
 // ooo000OOO000ooo...ooo000OOO000ooo...ooo000OOO000ooo ==== main program start
 
 	// read in events from lm file
@@ -250,7 +255,7 @@ int main(int argc, char **argv) {
 
 			if(buffer_indx == BUFFER_SIZE){
 				fwrite(add_fac_out, sizeof(float), BUFFER_SIZE, pOutputFile_add_fac);
-				fwrite(mul_fac_out, sizeof(float), buffer_indx, pOutputFile_mul_fac);
+				fwrite(mul_fac_out, sizeof(float), BUFFER_SIZE, pOutputFile_mul_fac);
 				buffer_indx = 0; // reset index
 			//if (num_buffers_read % 10 == 0)	cout << "buffer number " << num_buffers_read << "\t" << add_fac_out[i] << "\t" << attn[i] << endl;
 			}
