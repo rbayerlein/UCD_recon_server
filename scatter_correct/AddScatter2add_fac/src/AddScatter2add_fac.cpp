@@ -19,6 +19,7 @@ int num_ax_crys_per_unit_w_gap = 85;
 int num_ax_crys_per_block = 6;
 int num_tx_crys_per_block = 7;
 int num_lor_blkpair = 903;
+//int num_lor_blkpair = 42*42;
 int num_crystals_all_wo_gap = 564480;	//672*840
 int num_plane_efficiencies_wo_gap = 451584; // 672*672
 int num_plane_efficiencies = 461041; //679*679
@@ -156,7 +157,7 @@ int main(int argc, char **argv) {
 		cout << fname_lut << " cannot be opened." << endl;
 		exit(1);
 	}
-	Lut* plut = new Lut[num_bins_sino_block]; // block sino lut
+	Lut* plut = new Lut[num_bins_sino_block]; // block sino lut;  = 91 * 60;
 	fread(plut, sizeof(Lut), num_bins_sino_block, pFile_lut);
 
 	// set up block sino reverse lut
@@ -217,11 +218,6 @@ int main(int argc, char **argv) {
 		crys_read.close();
 	}
 
-	for (int i = 0; i < 100; ++i)
-	{
-		cout << i << "\t" << nc_plane[i] << endl;
-	}
-
 // ooo000OOO000ooo...ooo000OOO000ooo...ooo000OOO000ooo ==== main program start
 
 	// read in events from lm file
@@ -237,7 +233,9 @@ int main(int argc, char **argv) {
 
 	int num_buffers_read = 1;
 	int buffer_indx = 0;
-	
+
+	int zero_ct=0;
+
 	while(!feof(pInputFile_lm)){
 		//cout << "----> reading buffer number " << num_buffers_read << endl;
 
@@ -245,7 +243,6 @@ int main(int argc, char **argv) {
 		fread(add_fac, sizeof(float), BUFFER_SIZE, pInputFile_add_fac);
 		fread(mul_fac, sizeof(float), BUFFER_SIZE, pInputFile_mul_fac);
 		fread(attn_fac, sizeof(float), BUFFER_SIZE, pInputFile_attn_fac);
-//		fread(scat_fac, sizeof(float), BUFFER_SIZE, pOutputFile_scat_fac);
 		//cout << "Events in this buffer (read_ct): "<< read_ct << endl;
 
 		for (int i = 0; i < read_ct; ++i)
@@ -270,39 +267,48 @@ int main(int argc, char **argv) {
 
 			// calculate correction factor
 			float stemp = (float)scatter_sino[ind_blk_sino];
+/*
+          if (axBiA == axBiB) {
+				stemp = stemp / 2.0;
+			}   else {
+				stemp = stemp / 1.0;  
+			}
+*/
 			stemp = (float)stemp/num_lor_blkpair;
 
 			if(abs(pids_in[i].tof) < 64){
 				stemp = stemp * tof_wt[pids_in[i].tof+64];
+				//stemp = stemp / 128;
 			}else{
 				stemp = 0.0;
 			}
 			float pure_stemp = stemp;			// save the pure stemp, which does not contain added randoms, save further down in "scat_fac[i]"
 
-			// add randoms (uncorrected for attenuetion, etc!)
+			// add randoms (uncorrected for attenuation, etc!)
 			float rtemp = add_fac[i];			// read in randoms from ORIGINAL add_fac file NOT containing normalization, attenuation and dead time!
-			stemp = stemp + rtemp;				// add scatters and randoms 
+			if (add_fac[i] == 0) zero_ct++;
+	//		stemp = stemp + rtemp;				// add scatters and randoms 
+			stemp = rtemp;						// remove this later FIXME !!
 
 			//divide by mul_fac (apply dead time and decay correction)
 			if(mul_fac[i] != 0){
 				stemp /= mul_fac[i];
-				pure_stemp /= mul_fac[i];
+		//		pure_stemp /= mul_fac[i];
 			}else{
 				stemp = 0;
-				pure_stemp = 0;
+		//		pure_stemp = 0;
 			}
 			
 			//divide stemp by crystal normalization i.e. multiply by UIH-defined correction factors
-			pure_stemp *= (nc_crys[axCrysA_w_gap + 679*txCrysA] * nc_crys[axCrysB_w_gap + 679*txCrysB]);
+		//	pure_stemp *= (nc_crys[axCrysA_w_gap + 679*txCrysA] * nc_crys[axCrysB_w_gap + 679*txCrysB]);
 			stemp *= (nc_crys[axCrysA_w_gap + 679*txCrysA] * nc_crys[axCrysB_w_gap + 679*txCrysB]);
 
 			//divide stemp by plane normalization i.e. multiply by UIH-defined correction factors
-			pure_stemp *= (nc_plane[axCrysA_w_gap + 679*axCrysB_w_gap]);
+		//	pure_stemp *= (nc_plane[axCrysA_w_gap + 679*axCrysB_w_gap]);
 			stemp *= (nc_plane[axCrysA_w_gap + 679*axCrysB_w_gap]);
 
-
 			//divide stemp by attn_fac
-			if (attn_fac[i] !=0){ // catch dividing by zero. Should theoretically never happen as attenuation is never zero, even in air
+			if (attn_fac[i] !=0){ // catch dividing by zero. Should theoretically never happen as that would correspond to infnite attenuation
 				stemp /= attn_fac[i];
 				pure_stemp /= attn_fac[i];
 			}else{
@@ -311,7 +317,9 @@ int main(int argc, char **argv) {
 			}
 
 			scat_fac[i] = pure_stemp;	// write pure scatter correction factor to file
-			add_fac_out[i] = stemp;		// save scatters and randoms to the output add_fac variable
+	//		add_fac_out[i] = stemp;		// save scatters and randoms to the output add_fac variable
+			add_fac_out[i] = stemp + pure_stemp;	// revert this later FIXME !!
+			
 
 			buffer_indx++;
 
@@ -327,6 +335,7 @@ int main(int argc, char **argv) {
 		num_buffers_read++;
 	}
 
+	cout << zero_ct << endl; 
 
 	fwrite(add_fac_out, sizeof(float), buffer_indx, pOutputFile_add_fac);
 	fwrite(scat_fac , sizeof(float), buffer_indx, pOutputFile_scat_fac);

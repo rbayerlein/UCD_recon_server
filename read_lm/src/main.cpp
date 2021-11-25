@@ -973,17 +973,17 @@ int main(int argc, char **argv) {
 			if (COINC::IsBlockRate(pRawBuffer[i])) {
 				uid = COINC::GetUnitID(pRawBuffer[i]);
 				blkX = COINC::GetBlockIDX(pRawBuffer[i]); // absolute block IDX
-				br_temp = COINC::GetBlockRate(pRawBuffer[i]);
+				br_temp = COINC::GetBlockRate(pRawBuffer[i]); // Number of counts in the block in the 100 ms period
 				blkY = COINC::GetBlockIDY(pRawBuffer[i]) + (uid * 14); // absolute block IDY
 				modA = floor(blkX / 5) + (24 * floor(blkY / 14));
 				ind = blkX + (120 * blkY); // global block ID
 				block_rate_new[ind] = block_rate_new[ind]
-						+ ((double) br_temp * 10.0);
+						+ ((double) br_temp * 10.0); // number of counts in 1.0 s
 				block_rate_counts[ind] += 1.0;
 				module_rate_new[modA] = module_rate_new[modA]
 						+ ((double) br_temp * 10.0);
 				module_rate_counts[modA] = module_rate_counts[modA]
-						+ (1.0 / 70.0);
+						+ (1.0 / 70.0);	// 70 blocks per module; used to extrapolate from block rate to module rate later on
 				byte_location += 8; // move to next event (8 bytes)
 			} else if (COINC::IsTimestamp(pRawBuffer[i])) {
 				day1 = COINC::GetDay(pRawBuffer[i]);
@@ -1012,7 +1012,7 @@ int main(int argc, char **argv) {
 					for (int bk = 0; bk < num_blocks; bk++) {
 						if (block_rate_counts[bk] > 1.0) {
 							block_rate[bk] = block_rate_new[bk]
-									/ block_rate_counts[bk];
+									/ block_rate_counts[bk];	// mean block rate
 						} else {
 							block_rate[bk] = 00.0;
 						}
@@ -1027,19 +1027,19 @@ int main(int argc, char **argv) {
 						random_rate_new[mk] = 0.0;
 						if (module_rate_counts[mk] > 1.0) {
 							module_rate[mk] = module_rate_new[mk]
-									/ module_rate_counts[mk];
+									/ module_rate_counts[mk];	// mean rate per module
 						} else {
 							module_rate[mk] = 0.0;
 						}
 						module_rate_new[mk] = 0.0;
 						module_rate_counts[mk] = 0.0;
 					}
-					for (int bbi = 0; bbi < (24 * 8); bbi++) { // make dead-time block pair array
+					for (int bbi = 0; bbi < (24 * 8); bbi++) { // make dead-time module pair array
 						for (int bbj = 0; bbj < (24 * 8); bbj++) {
 							DTtemp1 = 1.0;
 							DTtemp2 = 1.0;
 							// 1
-							floodtemp = module_rate[bbi] - singles_bkg;
+							floodtemp = module_rate[bbi] - singles_bkg; // singles_bkg = 36000.0
 							if (floodtemp < 10.0) {
 								floodtemp = 10.0;
 							}

@@ -38,6 +38,32 @@ switch lower(name)
         tof_info = [430, 25];
         
 
+     case 'generic_debug'
+        name_tag = 'generic_debug';
+
+        ring_diameter = 500; % unit in mm
+
+        crystal_size = [4, 4, 4, 20]; % tf-tr-a-d (unit in mm)
+        crystal_gap_size = [0.1, 0.1, 0.1]; % tf-tr-a (unit in mm)
+        
+        if single_ring_only
+            crystal_array_size = [3 1];
+            number_of_detector_modules_axial = 1;
+            detector_modula_axial_extra_offsets = [0.0];
+        else
+            crystal_array_size = [3 1];
+            number_of_detector_modules_axial = 1;
+            detector_modula_axial_extra_offsets = [0.0 0.0];
+        end
+
+        number_of_detector_modules_transaxial = 8;
+        number_of_DOI_bins = 1;
+        detector_module_initial_angle_offset = 0.0;
+        
+        number_of_projections_per_angle = 19; % total # tx crystals (24) - 1 should be the maximum possible number of interleaved radial bins
+
+        tof_info = [500, 25];
+
     otherwise
         error('unknown scanner! micropet2, toshiba, inveon, ucdpetmr, explorer, explorer2000mm, explorer2000mm_v3_4brscanner');
         

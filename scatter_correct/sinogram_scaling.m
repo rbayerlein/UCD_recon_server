@@ -37,10 +37,10 @@ n_ax_blk_per_unit = 14;
 
 % for plotting
 ssrb_i = 81; % 112;
-% axAi = 31; %70; %30; % 39
-% axBi = 31; %70; %30; % 39
-% axAj = 59; %84;
-% axBj = 7; %29;
+axAi = 31; %70; %30; % 39
+axBi = 31; %70; %30; % 39
+axAj = 59; %84;
+axBj = 7; %29;
 
 % adaptive ssrb
 cv_threshold = 0.1;
@@ -241,7 +241,8 @@ legend('Experimental (P-D)','Simulation (T+S)','P-D-S','Simulation (T)','Simulat
 title('SSRB');
 set(gca,'FontSize',11,'FontWeight','bold');
 
-figure();
+
+subplot(1,2,1);
 plot(sino_pd(:,1,axAi,axBi),'-b'); hold on;
 plot((sino_t(:,1,axAi,axBi)+sino_s(:,1,axAi,axBi))*x_optimal(axAi,axBi),'--b');
 plot(sino_pd(:,1,axAi,axBi)-sino_s_scaled(:,1,axAi,axBi),'-r');
@@ -251,7 +252,7 @@ ylabel('Counts'); xlabel('Bin number');
 legend('Experimental (P-D)','Simulation (T+S)','P-D-S','Simulation (T)','Simulation (S)');
 title('Direct plane');
 set(gca,'FontSize',11,'FontWeight','bold');
-% 
+
 % figure();
 % plot(sino_pd(:,1,axAj,axBj),'-b'); hold on;
 % plot((sino_t(:,1,axAj,axBj)+sino_s(:,1,axAj,axBj))*x_optimal(axAj,axBj),'--b');

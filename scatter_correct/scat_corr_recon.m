@@ -80,6 +80,8 @@ n_bins = 2301; % number of available bins for a-map sampling - same as number of
 num_threads_avail = 44;    % actually it's 48 but should leave a few empty to prevent lagging. 
 num_threads_per_frame = num_threads_avail;
 
+max_num_to_simulate = 1e+11;
+min_num_to_simulate = 1e+8;
 % detector normalization files
 crys_eff = [handles.dcm_dir_init_ucd_server, '/crys_eff_679x840'];
 plane_eff = [handles.dcm_dir_init_ucd_server, '/plane_eff_679x679'];
@@ -404,11 +406,11 @@ for iter = 1 : handles.osem_iter
         fprintf(fid_log, '%s\n', warn_msg);
     end
     s = dir(lm_filename);
-    num_to_simulate = double(s.bytes);   % simulate 10 times as may as in lm file. an event has 10 byte. So file size equals num_to_simulate.
-    if num_to_simulate < 1e8
-        num_to_simulate = 1e8; %100m
-    elseif num_to_simulate > 5e10
-        num_to_simulate = 5e10; %50b
+    num_to_simulate = double(s.bytes);   % simulate 10 times as many as in lm file. an event has 10 byte. So file size equals num_to_simulate.
+    if num_to_simulate < min_num_to_simulate
+        num_to_simulate = min_num_to_simulate; %100m
+    elseif num_to_simulate > max_num_to_simulate
+        num_to_simulate = max_num_to_simulate; %100b
     end
     fprintf(fid_log, 'lm file size (%s): %1.1f bytes\n', lm_filename, s.bytes);
     fprintf(fid_log, 'number of events to simulate: %d\n', num_to_simulate);
@@ -653,7 +655,7 @@ for iter = 1 : handles.osem_iter
     cmd = sprintf('cat %s/f%d/*.%d_scatters.lm > %s/f%d/f%d.%d_scatters.lm',dir_hist,iter,iter,dir_hist,iter,iter,iter);
     system(cmd);
 
-% convert lm to sino: run_lm2blocksino.sh
+% convert lm to sino: s.sh
 
     fprintf(fid_log, 'converting trues from list-mode to sinogram\n'); disp('Converting trues from list-mode to sinogram...');
     cd(sprintf('%s/f%d',dir_hist,iter));
