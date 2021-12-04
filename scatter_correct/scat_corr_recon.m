@@ -31,6 +31,10 @@ if use_sim_node
     fprintf(fid_log, '%s\n', msg); disp(msg);
 end
 
+blk_sino_dim = 5; % basically decides wheather to use non-tof (dim=4) or tof (dim=5) for scatter correction.
+fprintf(fid_log, 'block sinogram dimension: %d\n', blk_sino_dim);
+fprintf('block sinogram dimension: %d\n', blk_sino_dim);
+
 currentFolder = pwd;
 fprintf(fid_log, 'directory of scatter correction script: \n%s\n', currentFolder); disp(currentFolder);
 
@@ -61,11 +65,15 @@ img_size = [239,239,679];
 vox_size = [2.85,2.85,2.85]; % mm
 
 bin_phg = [install_dir, 'simset/2.9.2_new_mat_table/bin/phg'];
-bin_hist2lm = [install_dir, 'simset/data_processing/hist2lm/bin/hist2lm'];
-bin_lm2blocksino =[install_dir, 'simset/data_processing/lm2blocksino_old/bin/lm2blocksino'];
+% bin_hist2lm = [install_dir, 'simset/data_processing/hist2lm/bin/hist2lm'];
+bin_hist2lm = [install_dir, 'simset/data_processing/hist2lm_zhaoheng/hist2lm/bin/hist2lm_w_TOF_blur_w_GAP'];
+bin_lm2blocksino = [install_dir, 'simset/data_processing/lm2blocksino_old/bin/lm2blocksino'];
+bin_lm2blocksino_5d = [install_dir, 'simset/data_processing/lm2blocksino5d/lm2blocksino5d/bin/lm2blocksino_5d'];
+
 %bin_scatter_add_fac =[install_dir, 'simset/data_processing/scatter_add_fac/bin/scatter_add_fac']; %#ok
 
 AddScatter2AddFac = [handles.install_dir_server, '/scatter_correct/AddScatter2add_fac/bin/AddScatter2add_fac'];
+AddScatter2AddFac_5d = [handles.install_dir_server, '/scatter_correct/AddScatter2add_fac/bin/AddScatter2add_fac_sino5d'];
 
 % LUT
 fname_lut = [bin_lm2blocksino(1:strfind(bin_lm2blocksino,'/bin')), 'include/index_blockpairs_transaxial_2x91x60_int16'];
@@ -114,8 +122,16 @@ if scatter_data_exist
     scatter_data_file = ' ';
     trues_data_file = ' ';
     for it = 1:20  % just try 20 iterations, it won't go higher if even that high
-        temp_name_s = sprintf('%s/f%d.%d_scatters.sino4d', dir_scatter_data, it, it);
-        temp_name_t = sprintf('%s/f%d.%d_trues.sino4d', dir_scatter_data, it, it);
+        if blk_sino_dim ==4
+            temp_name_s = sprintf('%s/f%d.%d_scatters.sino4d', dir_scatter_data, it, it);
+            temp_name_t = sprintf('%s/f%d.%d_trues.sino4d', dir_scatter_data, it, it);
+        elseif blk_sino_dim ==5
+            temp_name_s = sprintf('%s/f%d.%d_scatters.sino5d', dir_scatter_data, it, it);
+            temp_name_t = sprintf('%s/f%d.%d_trues.sino5d', dir_scatter_data, it, it);  
+        else 
+            fprintf(fid_log,'WRONG BLOCK SINOGRAM DIMENSION!');
+            error('WRONG BLOCK SINOGRAM DIMENSION!');
+        end
         if exist(temp_name_s, 'file') && exist(temp_name_t, 'file')
             found_highest_iter = true;
             highest_iteration=it;
@@ -207,7 +223,14 @@ if scatter_data_exist
 % scaling sinograms
     fprintf(fid_log, 'scaling sinograms\n'); disp('scaling sinograms');
     simulation_basename = [dir_scatter_data, '/f', num2str(highest_iteration), '.', num2str(highest_iteration)];     %only hand over base name without '_scatters.sino4d'
-    fname_sino_scaled_tmp = sinogram_scaling(highest_iteration, fname_pd, simulation_basename);
+    if blk_sino_dim == 4
+        fname_sino_scaled_tmp = sinogram_scaling(highest_iteration, fname_pd, simulation_basename);
+    elseif blk_sino_dim == 5
+        fname_sino_scaled_tmp = sinogram_scaling_5d(highest_iteration, fname_pd, simulation_basename);
+    else
+        fprintf(fid_log,'WRONG BLOCK SINOGRAM DIMENSION!');
+        error('WRONG BLOCK SINOGRAM DIMENSION!');
+    end
     
 % move fname_sino_scaled_tmp to lm data folder
     [~,NAME,EXT] = fileparts(fname_sino_scaled_tmp); % the ~ sign is a place holder, as that part of the file name will not be used later on
@@ -223,7 +246,14 @@ if scatter_data_exist
     % "usage: " << argv[0] << " [lm_folder_name] " << " [scaled_sino] " << " [user_name] " << " [index_blockpairs_transaxial_2x91x60_int16] " << " [nc_file]"
     nc_file = [handles.path_choose_server, handles.fname_choose_base, '1.nc'];
     lm_data_folder = [handles.server_recon_data_dir, '/', outfolder_server_temp];
-    cmd_as2af = sprintf('%s %s %s %s %s %s %s %d', AddScatter2AddFac, lm_data_folder, fname_sino_scaled, user, fname_lut, crys_eff, plane_eff, frame_num);
+    if blk_sino_dim == 4
+        cmd_as2af = sprintf('%s %s %s %s %s %s %s %d', AddScatter2AddFac, lm_data_folder, fname_sino_scaled, user, fname_lut, crys_eff, plane_eff, frame_num);
+    elseif blk_sino_dim == 5
+        cmd_as2af = sprintf('%s %s %s %s %s %s %s %d', AddScatter2AddFac_5d, lm_data_folder, fname_sino_scaled, user, fname_lut, crys_eff, plane_eff, frame_num);
+    else
+        fprintf(fid_log,'WRONG BLOCK SINOGRAM DIMENSION!');
+        error('WRONG BLOCK SINOGRAM DIMENSION!');
+    end        
     fprintf(fid_log, 'command: %s\n', cmd_as2af);
     system(cmd_as2af);
     pause(0.1);
@@ -659,12 +689,27 @@ for iter = 1 : handles.osem_iter
 
     fprintf(fid_log, 'converting trues from list-mode to sinogram\n'); disp('Converting trues from list-mode to sinogram...');
     cd(sprintf('%s/f%d',dir_hist,iter));
-    cmd = sprintf('%s f%d.%d_trues.lm f%d.%d_trues.sino4d %s', bin_lm2blocksino, iter, iter, iter, iter, fname_lut);
+    if blk_sino_dim ==4
+        cmd = sprintf('%s f%d.%d_trues.lm f%d.%d_trues.sino4d %s', bin_lm2blocksino, iter, iter, iter, iter, fname_lut);
+    elseif blk_sino_dim ==5
+        cmd = sprintf('%s f%d.%d_trues.lm f%d.%d_trues.sino5d %s', bin_lm2blocksino_5d, iter, iter, iter, iter, fname_lut);
+    else
+        fprintf(fid_log,'WRONG BLOCK SINOGRAM DIMENSION!');
+        error('WRONG BLOCK SINOGRAM DIMENSION!');
+    end
     system(cmd);
+    pause(0.1);
 
     fprintf(fid_log, 'converting scatters from list-mode to sinogram\n'); disp('Converting scatters from list-mode to sinogram...');
     cd(sprintf('%s/f%d',dir_hist,iter));
-    cmd = sprintf('%s f%d.%d_scatters.lm f%d.%d_scatters.sino4d %s', bin_lm2blocksino, iter, iter, iter, iter, fname_lut);
+    if blk_sino_dim ==4
+        cmd = sprintf('%s f%d.%d_scatters.lm f%d.%d_scatters.sino4d %s', bin_lm2blocksino, iter, iter, iter, iter, fname_lut);
+    elseif blk_sino_dim ==5
+        cmd = sprintf('%s f%d.%d_scatters.lm f%d.%d_scatters.sino5 %s', bin_lm2blocksino_5d, iter, iter, iter, iter, fname_lut);
+    else
+        fprintf(fid_log,'WRONG BLOCK SINOGRAM DIMENSION!');
+        error('WRONG BLOCK SINOGRAM DIMENSION!');
+    end
     system(cmd);
     pause(0.1);
 
@@ -757,7 +802,14 @@ for iter = 1 : handles.osem_iter
     cd(sprintf('%s', currentFolder));
     fprintf(fid_log, 'scaling sinograms\n'); disp('scaling sinograms');
     simulation_basename = [dir_hist, '/f', num2str(iter), '/f', num2str(iter), '.', num2str(iter),];     
-    fname_sino_scaled_tmp = sinogram_scaling(iter, fname_pd, simulation_basename);
+    if blk_sino_dim == 4
+        fname_sino_scaled_tmp = sinogram_scaling(iter, fname_pd, simulation_basename);
+    elseif blk_sino_dim == 5
+        fname_sino_scaled_tmp = sinogram_scaling_5d(iter, fname_pd, simulation_basename);
+    else
+        fprintf(fid_log,'WRONG BLOCK SINOGRAM DIMENSION!');
+        error('WRONG BLOCK SINOGRAM DIMENSION!');
+    end
     
 % move fname_sino_scaled_tmp to lm data folder
     [~,NAME,EXT] = fileparts(fname_sino_scaled_tmp);
@@ -774,7 +826,14 @@ for iter = 1 : handles.osem_iter
     % "usage: " << argv[0] << " [lm_folder_name] " << " [scaled_sino] " << " [user_name] " << " [index_blockpairs_transaxial_2x91x60_int16] " << " [nc_file]"
     nc_file = [handles.path_choose_server, handles.fname_choose_base, '1.nc'];
     lm_data_folder = [handles.server_recon_data_dir, '/', outfolder_server_temp];
-    cmd_as2af = sprintf('%s %s %s %s %s %s %s %d', AddScatter2AddFac, lm_data_folder, fname_sino_scaled, user, fname_lut, crys_eff, plane_eff, frame_num);
+    if blk_sino_dim == 4
+        cmd_as2af = sprintf('%s %s %s %s %s %s %s %d', AddScatter2AddFac, lm_data_folder, fname_sino_scaled, user, fname_lut, crys_eff, plane_eff, frame_num);
+    elseif blk_sino_dim == 5
+        cmd_as2af = sprintf('%s %s %s %s %s %s %s %d', AddScatter2AddFac_5d, lm_data_folder, fname_sino_scaled, user, fname_lut, crys_eff, plane_eff, frame_num);
+    else
+        fprintf(fid_log,'WRONG BLOCK SINOGRAM DIMENSION!');
+        error('WRONG BLOCK SINOGRAM DIMENSION!');
+    end
     fprintf(fid_log, 'command: %s\n', cmd_as2af);
     system(cmd_as2af);
     pause(0.1);
@@ -792,7 +851,7 @@ pause(0.1);
 fprintf(fid_log, 'done scat_corr_recon.\n');
 fprintf('done scat_corr_recon.\n');
 fclose(fid_log);
-quit;
+% quit;
 end % function 
 
 

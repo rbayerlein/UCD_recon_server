@@ -5,9 +5,11 @@
 #include <cmath>
 #include <cstdio>
 #include <string>
+#include <sys/time.h>
 
 #define BUFFER_SIZE 65536 // = elements per buffer
-
+#define N_TOF 27 //UIH defined [15,17,19,23,25,27], we use 27 to maintain compatibility with old format
+#define N_TIME_BIN_PER_TOF 7
 
 using namespace std;
 
@@ -125,12 +127,11 @@ int main(int argc, char **argv) {
 		cout << "could not open scatter sino" <<  endl;
 		exit(1); 
 	}
-	vector<double> scatter_sino(num_bins_sino_block * num_ax_block_ring * num_ax_block_ring);
-	for (int sci=0;  sci<(num_bins_sino_block * num_ax_block_ring * num_ax_block_ring); sci++) {
-		scatter_sino_read.read(reinterpret_cast<char*>(&scatter_sino[sci]), sizeof(double));
+	vector<float> scatter_sino(num_bins_sino_block * num_ax_block_ring * num_ax_block_ring * N_TOF);
+	for (int sci=0;  sci<(num_bins_sino_block * num_ax_block_ring * num_ax_block_ring * N_TOF); sci++) {
+		scatter_sino_read.read(reinterpret_cast<char*>(&scatter_sino[sci]), sizeof(float));
 	}
 	scatter_sino_read.close();
-
 
 	cout << "-> opening tof distribution " << endl;
 	string user_name = argv[3];
@@ -233,7 +234,7 @@ int main(int argc, char **argv) {
 // ooo000OOO000ooo...ooo000OOO000ooo...ooo000OOO000ooo ==== main program start
 
 	// read in events from lm file
-	cout << "-> reading from list mode file...(may take a while)" << endl;
+	cout << "-> reading from list mode file...(may take a while)\n" << endl;
 
 	// get buffers 
 	ids * pids_in = new ids[BUFFER_SIZE];
@@ -246,10 +247,24 @@ int main(int argc, char **argv) {
 	int num_buffers_read = 1;
 	int buffer_indx = 0;
 
-	int zero_ct=0;
+	int lg26_ct=0;
+	int sm0_ct=0;
+
+	time_t t0,t1;
+	time(&t0);
+	timeval hres_t0, hres_t1;
+	gettimeofday(&hres_t0,NULL);
+	printf("Timer is started on %s", ctime(&t0));
 
 	while(!feof(pInputFile_lm)){
-		//cout << "----> reading buffer number " << num_buffers_read << endl;
+		if(num_buffers_read % 1000 == 0){
+			cout << "----> reading buffer number " << num_buffers_read << endl;
+			time(&t1);
+			gettimeofday(&hres_t1,NULL);
+			double tdiff = (hres_t1.tv_sec - hres_t0.tv_sec);
+			tdiff += (hres_t1.tv_usec - hres_t0.tv_usec)/1e6;
+			printf("\telapsed time is %.2f s\n", tdiff);
+		}
 
 		int read_ct = fread(pids_in, sizeof(ids), BUFFER_SIZE, pInputFile_lm);
 		fread(add_fac, sizeof(float), BUFFER_SIZE, pInputFile_add_fac);
@@ -266,6 +281,9 @@ int main(int argc, char **argv) {
 			short axCrysB = pids_in[i].axIDB - (pids_in[i].axIDB / num_ax_crys_per_unit_w_gap);
 			short axCrysA_w_gap = pids_in[i].axIDA;
 			short axCrysB_w_gap = pids_in[i].axIDB;
+			short TOF_AB = pids_in[i].tof / N_TIME_BIN_PER_TOF;
+			if(TOF_AB+13 > 26) {TOF_AB = 13; lg26_ct++;}	// catch out of bound values
+			if(TOF_AB+13 < 0) {TOF_AB = -13; sm0_ct++;}
 
 			// unit
 			int unitA = (int) axCrysA_w_gap / 85;
@@ -280,19 +298,23 @@ int main(int argc, char **argv) {
 
 			// get transaxial sinogram index
 			int idx_tx_blk = blk_idx[txBiA][txBiB]; 
-			int ind_blk_sino = idx_tx_blk + num_bins_sino_block * axBiA + num_bins_sino_block * num_ax_block_ring * axBiB; 
+			int ind_blk_sino = idx_tx_blk 
+			+ num_bins_sino_block * axBiA 
+			+ num_bins_sino_block * num_ax_block_ring * axBiB
+			+ num_bins_sino_block * num_ax_block_ring * num_ax_block_ring * (TOF_AB+13); 
 
 			// calculate correction factor for sinogram block
-			float stemp = (float)scatter_sino[ind_blk_sino];
+			float stemp = (float)scatter_sino[ind_blk_sino] / N_TIME_BIN_PER_TOF;
+			// divide by N_TIME_BIN_PER_TOF since that amount of tof bins is combined in the scatter sinogram
+
+			stemp = (float)stemp/num_lor_blkpair;	// avg number of scatters per LOR
+
 /*
           if (axBiA == axBiB) {
 				stemp = stemp / 2.0;
 			}   else {
 				stemp = stemp / 1.0;  
 			}
-*/
-			stemp = (float)stemp/num_lor_blkpair;	// avg number of scatters per LOR
-
 
 			if(abs(pids_in[i].tof) < 64){
 				stemp = stemp * tof_wt[pids_in[i].tof+64];
@@ -300,6 +322,7 @@ int main(int argc, char **argv) {
 			}else{
 				stemp = 0.0;
 			}
+*/
 
 //			stemp = stemp * (39.0625 / t_window);	// Average num of scatters per tof bin
 
@@ -307,7 +330,7 @@ int main(int argc, char **argv) {
 
 			// add randoms (uncorrected for attenuation, etc!)
 			float rtemp = add_fac[i];				// read in randoms from ORIGINAL add_fac file NOT containing normalization, attenuation and dead time!
-			if (add_fac[i] == 0) zero_ct++;
+			
 	//		stemp = stemp + rtemp;					// add scatters and randoms 
 			stemp = rtemp;							// remove this later FIXME !!
 
@@ -354,15 +377,16 @@ int main(int argc, char **argv) {
 		}
 
 		num_buffers_read++;
+//		if (num_buffers_read> 2000) exit(1);		// REMOVE THIS LATER!!! FIXME!!! 
 	}
 
-	cout << zero_ct << endl; 
+	cout << "larger zero: " << lg26_ct << "\tsmaller 0: " << sm0_ct << endl; 
 
 	fwrite(add_fac_out, sizeof(float), buffer_indx, pOutputFile_add_fac);
 	fwrite(scat_fac , sizeof(float), buffer_indx, pOutputFile_scat_fac);
 
 	// re-name original file and save new file under original name
-	cout << "-> deleting existing *.add_fac and renaming new file to *.add_fac" << endl;
+	cout << "\n-> deleting existing *.add_fac and renaming new file to *.add_fac" << endl;
 
 	if ( remove(infile_add_fac.c_str()) != 0 ){
 		cerr << "!! could not remove previous file " << infile_add_fac << endl;

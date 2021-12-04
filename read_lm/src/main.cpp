@@ -1620,6 +1620,7 @@ int main(int argc, char **argv) {
 							DF_eff = pow(0.5, (double)(time_elapsed/decay_time_constant));	// from S.Cherry, Physics in Nuclear Medicine, v.4, p.36
 							DF = 1/DF_eff;
 							mtemp = mtemp * DF;
+							//mtemp = mtemp * DF_eff;
 
 							if (r_singles) { // false, 08/18/2021, rbayerlein
 								singles_c1 = block_rate[blk_absA] / 42.0;
