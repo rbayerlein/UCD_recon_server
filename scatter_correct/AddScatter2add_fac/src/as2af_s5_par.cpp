@@ -4,6 +4,8 @@
 #include <vector>
 #include <cmath>
 #include <cstdio>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string>
 #include <sys/time.h>
 #include <sys/stat.h>
@@ -38,7 +40,7 @@ int num_crystals_all = 570360; // 679*840
 vector<float> nc_crys(num_crystals_all); 
 vector<float> nc_plane(num_plane_efficiencies);
 
-//vector<float> scatter_sino(num_bins_sino_block * num_ax_block_ring * num_ax_block_ring * N_TOF);			 COMMENT BACK IN!! FIXME
+vector<float> scatter_sino(num_bins_sino_block * num_ax_block_ring * num_ax_block_ring * N_TOF);
 
 vector< vector<int> > blk_idx(num_tx_block_ring, vector<int>(num_tx_block_ring, -1)); // initialize values to -1
 
@@ -66,7 +68,6 @@ struct filePos {
 };
 
 int AddScatter2add_fac(long long startPos, long long endPos, short threadID);
-int doSomething(long long x, long long y, short z);
 
 // ooo000OOO000ooo...ooo000OOO000ooo...ooo000OOO000ooo...ooo000OOO000ooo...ooo000OOO000ooo...ooo000OOO000ooo ==== main function
 
@@ -153,18 +154,18 @@ int main(int argc, char **argv) {
 		cerr << outfile_add_fac << " cannot be opened." << endl;
 		exit(1);
 	}	
-/*																								COMMENT BACK IN!!! FIXME
+																								
 	FILE *pOutputFile_scat_fac =  fopen(outfile_scat_fac.c_str(), "wb");
 	if (pOutputFile_scat_fac == NULL) { // check return value of file pointer
 		cerr << outfile_scat_fac << " cannot be opened." << endl;
 		exit(1);
 	}	
-*/
+
 	fclose(pInputFile_lm);
 	fclose(pInputFile_mul_fac);
 	fclose(pInputFile_add_fac);
 	fclose(pOutputFile_add_fac);
-	//fclose(pOutputFile_scat_fac); //															COMMENT BACK IN!!! FIXME
+	fclose(pOutputFile_scat_fac);
 
 	cout << "-> Creating temp folder for parallel threads" << endl;
 	string temp_out = infile_fullpath;
@@ -173,9 +174,9 @@ int main(int argc, char **argv) {
 	if (status != 0){
 		cout << "----> temp folder was not created at this location\n" << temp_out << "\n\t(probably exists or directory is invalid.)" << endl;	// make this nicer! FIXME
 	}
-// Read in Look Up Tables and Detector Normalization Files
+// Read in Look Up Tables, Scatter Sino and Detector Normalization Files
 
-/*	cout << "-> opening scatter sino " << endl;			// COMMENT BACK IN -- FIXME
+	cout << "-> opening scatter sino " << endl;
 	string scatter_sino_path = argv[2];
 	ifstream scatter_sino_read; 
 	scatter_sino_read.open(scatter_sino_path.c_str(),  ios::in | ios::binary); 
@@ -188,7 +189,7 @@ int main(int argc, char **argv) {
 		scatter_sino_read.read(reinterpret_cast<char*>(&scatter_sino[sci]), sizeof(float));
 	}
 	scatter_sino_read.close();
-*/
+
 	cout << "-> opening index_blockpairs_transaxial_2x91x60_int16 lut " << endl;
 	string fname_lut = string(argv[3]);
 	FILE* pFile_lut = fopen(fname_lut.c_str(), "rb");
@@ -262,18 +263,18 @@ int main(int argc, char **argv) {
 	infile.seekg(0, infile.end);
 	long long file_size = infile.tellg(); //get size (events) of list mode file
 	long long num_events = file_size / sizeof(ids);
-	cout << num_events << " total events" << endl;
+	cout << "-> " << num_events << " total events" << endl;
 	infile.close();
 
 	filePos* fPos = new filePos[processor_count];
-	long long events_per_thread = ceil(num_events/processor_count);
-	cout << "Number of events per thread: " << events_per_thread << endl;
+	long long events_per_thread = ceil((float)num_events/processor_count);
+	cout << "-> Number of events per thread: " << events_per_thread << endl;
 	for (int i = 0; i < processor_count-1; ++i)
 	{
 		fPos[i].fStartPos = i*events_per_thread;
 		fPos[i].fEndPos = fPos[i].fStartPos + events_per_thread-1;
 	}
-	fPos[processor_count-1].fStartPos = processor_count*events_per_thread;
+	fPos[processor_count-1].fStartPos = fPos[processor_count-2].fEndPos+1;
 	fPos[processor_count-1].fEndPos = num_events-1;
 
 
@@ -293,10 +294,12 @@ int main(int argc, char **argv) {
 	    }
 	    fut[i] = task.get_future();  						// get a future
 	    t[i] = thread(move(task),s,e,i);// launch on a thread
+	    usleep(10000);	// sleep for XXX microseconds
 	}
 
 
 // wait for the processes to finish
+	sleep(1);
 	bool process_finished[processor_count] = {false};
 	short num_processes_done = 0;
 	int interval = 4;
@@ -333,16 +336,59 @@ int main(int argc, char **argv) {
 		t[i].join();
 	}
 
-	cout << "done all threads." << endl;
+	cout << "-> done all threads." << endl;
 
-	// perform clean up
+	usleep(10000);
+
+// perform clean up
 
 	// concatenate files
+	cout << "-> concatenate files..." << endl;
+	stringstream ss_concat_add_fac, ss_concat_scat_fac;
+	ss_concat_add_fac << "cat";
+	ss_concat_scat_fac << "cat";
+
+	for (int i = 0; i < processor_count; ++i)
+	{
+		ss_concat_add_fac << " " << infile_fullpath << "/temp/lm_reorder_f" << frame_number << "_prompts.add_fac_out." << i ;
+		ss_concat_scat_fac << " " << infile_fullpath << "/temp/lm_reorder_f" << frame_number << "_prompts.scat_fac." << i ;
+	}
+	ss_concat_add_fac << " > " << infile_fullpath << "/lm_reorder_f" << frame_number << "_prompts.add_fac_out";
+	ss_concat_scat_fac << " > " << infile_fullpath << "/lm_reorder_f" << frame_number << "_prompts.scat_fac";
+	string cmd_concat_1 = ss_concat_add_fac.str();
+	string cmd_concat_2 = ss_concat_scat_fac.str();
+	system(cmd_concat_1.c_str());
+	system(cmd_concat_2.c_str());
+
 	// delete temp folder
+	cout << "-> deleting temp files..." ;
+	stringstream ss_delete;
+	ss_delete << "rm -r " << infile_fullpath << "/temp" << endl;
+	string delete_temp = ss_delete.str();
+	system(delete_temp.c_str());
 
 
+	// re-name original file and save new file under original name
+	cout << "\n-> deleting existing *.add_fac and renaming new file to *.add_fac" << endl;
 
-	cout << "DONE." << endl;
+	if ( remove(infile_add_fac.c_str()) != 0 ){
+		cerr << "!! could not remove previous file " << infile_add_fac << endl;
+		exit(1);
+	}else{
+		cerr << "----> sucessfully deleted previous file\n\t" << infile_add_fac << endl;
+	}
+
+	string outfile_add_fac_new = outfile_add_fac;
+	outfile_add_fac_new.erase(outfile_add_fac.length() -4, 4);
+	if (rename(outfile_add_fac.c_str() , outfile_add_fac_new.c_str()) != 0){
+		cerr << "!! renaming file\n" << outfile_add_fac << "\nto\n" << outfile_add_fac_new << "\nfailed." << endl;
+		exit(1);
+	}else{
+		cerr << "----> sucessfully renamed file\n\t" << outfile_add_fac << "\nto\n\t" << outfile_add_fac_new << endl;
+	}	 
+
+
+	cout << "=====\nDONE." << endl;
 }
 
 
@@ -350,7 +396,7 @@ int main(int argc, char **argv) {
 
 int AddScatter2add_fac(long long startPos, long long endPos, short threadID){
 
-	cout << "starting thread " << threadID << ", from evtNum " << startPos << " to " << endPos << endl;
+	cout << "----> starting thread " << threadID << ", from evtNum " << startPos << " to " << endPos << endl;
 
 	FILE *pInputFile_lm =  fopen(infile_lm.c_str(), "rb");
 	FILE *pInputFile_add_fac =  fopen(infile_add_fac_orig.c_str(), "rb");
@@ -439,8 +485,8 @@ int AddScatter2add_fac(long long startPos, long long endPos, short threadID){
 			+ num_bins_sino_block * num_ax_block_ring * num_ax_block_ring * (TOF_AB+13); 
 
 			// calculate correction factor for sinogram block
-			//float stemp = (float)scatter_sino[ind_blk_sino] / N_TIME_BIN_PER_TOF;
-			float stemp = 1;			// REMOVE THIS LATER!! FIXME
+			float stemp = (float)scatter_sino[ind_blk_sino] / N_TIME_BIN_PER_TOF;
+			
 			// divide by N_TIME_BIN_PER_TOF since that amount of tof bins is combined in the scatter sinogram
 
 			stemp = (float)stemp/num_lor_blkpair;	// avg number of scatters per LOR
@@ -531,9 +577,4 @@ int AddScatter2add_fac(long long startPos, long long endPos, short threadID){
 	fclose(pOutputFile_scat_fac);
 
 	return 0;
-}
-
-int doSomething(long long x, long long y, short z){
-    long long a = x+y;
-    return z+1;
 }

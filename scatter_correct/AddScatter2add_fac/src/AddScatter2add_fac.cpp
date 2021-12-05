@@ -157,7 +157,7 @@ int main(int argc, char **argv) {
 		cout << fname_lut << " cannot be opened." << endl;
 		exit(1);
 	}
-	Lut* plut = new Lut[num_bins_sino_block]; // block sino lut; num_bins_sino_block = 91 * 60;
+	Lut* plut = new Lut[num_bins_sino_block]; // block sino lut;  = 91 * 60;
 	fread(plut, sizeof(Lut), num_bins_sino_block, pFile_lut);
 
 	// set up block sino reverse lut
@@ -293,16 +293,15 @@ int main(int argc, char **argv) {
 */
 			stemp = (float)stemp/num_lor_blkpair;	// avg number of scatters per LOR
 
-
+/*
 			if(abs(pids_in[i].tof) < 64){
 				stemp = stemp * tof_wt[pids_in[i].tof+64];
 				//stemp = stemp / 128;
 			}else{
 				stemp = 0.0;
 			}
-
-//			stemp = stemp * (39.0625 / t_window);	// Average num of scatters per tof bin
-
+*/
+			stemp = stemp * (39.0625 / t_window);	// Average num of scatters per tof bin
 			float pure_stemp = stemp;				// save the pure stemp, which does not contain added randoms, save further down in "scat_fac[i]"
 
 			// add randoms (uncorrected for attenuation, etc!)
@@ -393,19 +392,9 @@ int main(int argc, char **argv) {
 	fclose(pInputFile_add_fac);
 	fclose(pOutputFile_add_fac);
 	fclose(pOutputFile_scat_fac);
+	fclose(pInputFile_attn_fac);
 
 	cout << "done" << endl;
 
 
-/*
-	FILE *pInputFile_TEST = fopen(infile_add_fac.c_str(), "rb");
-	float *add_fac_TEST = new float[BUFFER_SIZE];
-	while(!feof(pInputFile_TEST)){
-		int read_ct = fread(add_fac_TEST, sizeof(float), BUFFER_SIZE, pInputFile_TEST);
-		for (int i = 0; i < read_ct; ++i)
-		{
-			if(add_fac_TEST[i] > 10000) cout << add_fac_TEST[i] << endl;
-		}
-	}
-*/
 }

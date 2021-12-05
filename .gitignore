@@ -8,6 +8,7 @@ read_lm/process_lm_sino_explorer_singlefile_release
 read_lm/lut/block_sino_f0_scatters*
 read_lm/lut/roi_mask_256x256x830.img
 read_lm/lmrecon_exploer/app/lmrecon_tof_fp_output
+scatter_correct/AddScatter2add_fac/bin/as2af_s5_par
 
 # folders 
 dir_temp/

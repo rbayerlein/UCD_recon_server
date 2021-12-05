@@ -385,6 +385,21 @@ int main(int argc, char **argv) {
 	fwrite(add_fac_out, sizeof(float), buffer_indx, pOutputFile_add_fac);
 	fwrite(scat_fac , sizeof(float), buffer_indx, pOutputFile_scat_fac);
 
+
+	cout << "-> closing all files" << endl;
+	delete[] pids_in;
+	delete[] add_fac_out;
+	delete[] add_fac;
+	delete[] attn_fac;
+	delete[] scat_fac;
+	delete[] mul_fac;
+	fclose(pInputFile_lm);
+	fclose(pInputFile_mul_fac);
+	fclose(pInputFile_add_fac);
+	fclose(pOutputFile_add_fac);
+	fclose(pOutputFile_scat_fac);
+	fclose(pInputFile_attn_fac);
+	
 	// re-name original file and save new file under original name
 	cout << "\n-> deleting existing *.add_fac and renaming new file to *.add_fac" << endl;
 
@@ -405,31 +420,7 @@ int main(int argc, char **argv) {
 	}	 
 
 
-	cout << "-> closing all files" << endl;
-	delete[] pids_in;
-	delete[] add_fac_out;
-	delete[] add_fac;
-	delete[] attn_fac;
-	delete[] scat_fac;
-	delete[] mul_fac;
-	fclose(pInputFile_lm);
-	fclose(pInputFile_mul_fac);
-	fclose(pInputFile_add_fac);
-	fclose(pOutputFile_add_fac);
-	fclose(pOutputFile_scat_fac);
-
 	cout << "done" << endl;
 
 
-/*
-	FILE *pInputFile_TEST = fopen(infile_add_fac.c_str(), "rb");
-	float *add_fac_TEST = new float[BUFFER_SIZE];
-	while(!feof(pInputFile_TEST)){
-		int read_ct = fread(add_fac_TEST, sizeof(float), BUFFER_SIZE, pInputFile_TEST);
-		for (int i = 0; i < read_ct; ++i)
-		{
-			if(add_fac_TEST[i] > 10000) cout << add_fac_TEST[i] << endl;
-		}
-	}
-*/
 }
