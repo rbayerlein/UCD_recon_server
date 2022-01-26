@@ -20,8 +20,8 @@ int num_tx_block_ring = 120; // 5*24
 int num_ax_crys_per_unit_w_gap = 85;
 int num_ax_crys_per_block = 6;
 int num_tx_crys_per_block = 7;
-int num_lor_blkpair = 903;
-//int num_lor_blkpair = 42*42;
+//int num_lor_blkpair = 903;
+int num_lor_blkpair = 42*42;
 int num_crystals_all_wo_gap = 564480;	//672*840
 int num_plane_efficiencies_wo_gap = 451584; // 672*672
 int num_plane_efficiencies = 461041; //679*679
@@ -277,11 +277,17 @@ int main(int argc, char **argv) {
 			// get crystal IDs
 			short txCrysA = pids_in[i].txIDA;
 			short txCrysB = pids_in[i].txIDB;
-			short axCrysA = pids_in[i].axIDA; - (pids_in[i].axIDA / num_ax_crys_per_unit_w_gap);
+			short axCrysA = pids_in[i].axIDA - (pids_in[i].axIDA / num_ax_crys_per_unit_w_gap);
 			short axCrysB = pids_in[i].axIDB - (pids_in[i].axIDB / num_ax_crys_per_unit_w_gap);
 			short axCrysA_w_gap = pids_in[i].axIDA;
 			short axCrysB_w_gap = pids_in[i].axIDB;
-			short TOF_AB = pids_in[i].tof / N_TIME_BIN_PER_TOF;
+			short TOF_AB = pids_in[i].tof;
+			if(TOF_AB >= 0){
+				TOF_AB = TOF_AB / N_TIME_BIN_PER_TOF;
+			}else{
+				TOF_AB -=7;
+				TOF_AB = TOF_AB / N_TIME_BIN_PER_TOF;
+			}
 			if(TOF_AB+13 > 26) {TOF_AB = 13; lg26_ct++;}	// catch out of bound values
 			if(TOF_AB+13 < 0) {TOF_AB = -13; sm0_ct++;}
 
@@ -399,7 +405,7 @@ int main(int argc, char **argv) {
 	fclose(pOutputFile_add_fac);
 	fclose(pOutputFile_scat_fac);
 	fclose(pInputFile_attn_fac);
-	
+
 	// re-name original file and save new file under original name
 	cout << "\n-> deleting existing *.add_fac and renaming new file to *.add_fac" << endl;
 

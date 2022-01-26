@@ -52,9 +52,11 @@ private:
 	float crys_eff_672x840[BUFFER_size - NUM_dummy_crystals]; 		/*!< crystal efficiencies from file. Dimensions: axial * transaxial = 564480. Uses linear indexing */
 
 	int num_ax_crys_mod=84;											/*!< Number of crystals per module (also per unit) in axial direction */
-	int num_trans_crys_mod=70;										/*!< Number of crystals per module in TRANSaxial direction */
+	int num_trans_crys_mod=70;										/*!< Number of crystals per bank in TRANSaxial direction */
 	int num_trans_crys_ring=840;									/*!< Number of crystals per transaxial ring (there is no axial ring, of course)*/
 	int num_units=8;												/*!< Number of units (and modules) in axial direction*/
+	int num_ax_crys=672;											/*!< Number of crystals in axial direction WITHOUT gap between modules*/
+	int num_ax_crys_w_gap=679;										/*!< Number of crystals in axial direction including gap between modules*/
 
 	bool createLogFile;
 	std::string output_LOG;
@@ -75,7 +77,7 @@ private:
 	int firstTimeStamp;												/*!< first time stamp in the data set */
 	int config_param[6];											/*!< config parameters like number of beds, overlap, start ring...*/
 
-	int ExposureLUT[679][679];										/*!< contains the times that each pair of crystal rings contributes to the data set (in seconds) */
+	int ExposureLUT[672][672];										/*!< contains the times that each pair of crystal rings contributes to the data set (in seconds) */
 };
 
 

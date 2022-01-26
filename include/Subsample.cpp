@@ -16,9 +16,9 @@ Subsample::Subsample(std::string s, int t) /*!< Takes the full path to the .raw 
 {
 	createLogFile = false;
 	//pre-initialize LUT with zeros
-	for (int i = 0; i < 679; ++i)
+	for (int i = 0; i < num_ax_crys; ++i)
 	{
-		for (int j = 0; j < 679; ++j)
+		for (int j = 0; j < num_ax_crys; ++j)
 		{
 			ExposureLUT[i][j] = 0;
 		}
@@ -240,10 +240,10 @@ void Subsample::FillExposureTable(){
 	// loop over all bed positions
 	for (int bed = 1; bed < num_beds+1; ++bed)
 	{
-//		cout << "bed " << bed << endl;
+		cout << "bed " << bed << endl;
 		int this_bed_start = start_ring + (bed-1)*(rings_per_bed-bed_overlap);
 		int this_bed_end = this_bed_start + rings_per_bed-1;
-//		cout << "this_bed_start: " << this_bed_start << "; this_bed_end: " << this_bed_end << endl;
+		cout << "this_bed_start: " << this_bed_start << "; this_bed_end: " << this_bed_end << endl;
 		for(int i = this_bed_start; i <this_bed_end+1; ++i){
 			for(int j = this_bed_start; j <this_bed_end+1; ++j){
 				ExposureLUT[i-1][j-1] += time_per_bed*num_cycles;	// [i-1] and [j-1] because C++ uses zero indexing

@@ -5,6 +5,8 @@
 #include <cmath>
 #include <cstdio>
 #include <string>
+#include <chrono>
+#include <unistd.h>
 
 #define BUFFER_SIZE 65536 // = elements per buffer
 
@@ -47,6 +49,15 @@ int main(int argc, char **argv) {
 	size_t found_ext = infile_lm.find_last_of(".lm");
 	string fname_raw = infile_lm.substr(0,found_ext-2);
 	cout << "found file name without extension: " << fname_raw << endl;
+
+	// create a check-file
+	cout << "-> Creating a check file" << endl;
+	string checkfile_name = fname_raw;
+	checkfile_name = checkfile_name.append(".checkfile");
+	ofstream o_check;
+	o_check.open(checkfile_name.c_str());
+	o_check.close();
+	usleep(1000000);	// sleep for 1000000 microseconds = 1000ms = 1s
 
 	// get add fac and mul fac files
 	stringstream ss_add_fac, ss_mul_fac, ss_add_fac_out, ss_mul_fac_out;
@@ -185,11 +196,6 @@ int main(int argc, char **argv) {
 		crys_read.close();
 	}
 
-	for (int i = 0; i < 100; ++i)
-	{
-		cout << i << "\t" << nc_plane[i] << endl;
-	}
-
 // ooo000OOO000ooo...ooo000OOO000ooo...ooo000OOO000ooo ==== main program start
 
 	// read in events from lm file
@@ -273,7 +279,7 @@ int main(int argc, char **argv) {
 		cerr << "!! could not remove previous file " << infile_add_fac << endl;
 		exit(1);
 	}else{
-		cerr << "----> sucessfully deleted previous file\n" << infile_add_fac << endl;
+		cout << "----> sucessfully deleted previous file\n" << infile_add_fac << endl;
 	}
 
 	string outfile_add_fac_new = outfile_add_fac;
@@ -282,7 +288,7 @@ int main(int argc, char **argv) {
 		cerr << "!! renaming file\n" << outfile_add_fac << "\nto\n" << outfile_add_fac_new << "\nfailed." << endl;
 		exit(1);
 	}else{
-		cerr << "----> sucessfully renamed file\n" << outfile_add_fac << "\nto\n" << outfile_add_fac_new << endl;
+		cout << "----> sucessfully renamed file\n" << outfile_add_fac << "\nto\n" << outfile_add_fac_new << endl;
 	}	 
 
 	// re-name original MUL FAC file and save new file under original name
@@ -292,7 +298,7 @@ int main(int argc, char **argv) {
 		cerr << "!! could not remove previous file " << infile_mul_fac << endl;
 		exit(1);
 	}else{
-		cerr << "----> sucessfully deleted previous file\n" << infile_mul_fac << endl;
+		cout << "----> sucessfully deleted previous file\n" << infile_mul_fac << endl;
 	}
 
 	string outfile_mul_fac_new = outfile_mul_fac;
@@ -301,7 +307,7 @@ int main(int argc, char **argv) {
 		cerr << "!! renaming file\n" << outfile_mul_fac << "\nto\n" << outfile_mul_fac_new << "\nfailed." << endl;
 		exit(1);
 	}else{
-		cerr << "----> sucessfully renamed file\n" << outfile_mul_fac << "\nto\n" << outfile_mul_fac_new << endl;
+		cout << "----> sucessfully renamed file\n" << outfile_mul_fac << "\nto\n" << outfile_mul_fac_new << endl;
 	}	 
 
 
@@ -316,6 +322,14 @@ int main(int argc, char **argv) {
 	fclose(pInputFile_add_fac);
 	fclose(pOutputFile_add_fac);
 	fclose(pInputFile_attn);
+
+	cout << "-> removing check file " << checkfile_name << endl;
+	if(remove(checkfile_name.c_str()) != 0){
+		cerr << "!! could not remove the checkfile " << checkfile_name << endl;
+	}else{
+		cout << "----> Check file successfully removed." << endl;
+	}
+
 
 	cout << "done" << endl;
 

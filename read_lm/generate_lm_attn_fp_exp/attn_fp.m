@@ -24,6 +24,8 @@ handles = h.handles;
 clear h; 
 pause(0.1); 
 
+handles.server_temp_dir
+
 outfolder_server_temp = handles.server_temp_dir{frame_num+1};
 
 %% check if lm files exist already
@@ -116,20 +118,64 @@ while not_done
 end
 
 
-%% run AddAttn2add_fac
+%% run AddAttn2add_fac in parallel
 
 crys_eff = [handles.dcm_dir_init_ucd_server, '/crys_eff_679x840'];
 plane_eff = [handles.dcm_dir_init_ucd_server, '/plane_eff_679x679'];
 
 for i = 1:8
     cmd = [AddAttn2add_fac, ' ', handles.server_recon_data_dir,'/',outfolder_server_temp,'/lm_reorder_f', num2str(frame_num), '_prompts.', num2str(i), '.lm ',...
-        handles.server_recon_data_dir,'/',outfolder_server_temp, '/lm_reorder_f', num2str(frame_num), '_prompts.', num2str(i), '.attn_fac ', crys_eff, ' ', plane_eff];
+        handles.server_recon_data_dir,'/',outfolder_server_temp, '/lm_reorder_f', num2str(frame_num), '_prompts.', num2str(i), '.attn_fac ', crys_eff, ' ', plane_eff, '&'];
     fprintf('now running command %s\n', cmd); 
     system(cmd);
     pause(0.2);
 end
 
+% check if add fac files have been updated: look for a check file created
+% by AddAttn2add_fac
+cf_exists = zeros(1,8);
+%check if file exists (i.e. process has started)
+not_done = true;
+while not_done
+    for i = 1:8
+         file2check = [handles.server_recon_data_dir,'/',outfolder_server_temp, '/lm_reorder_f', num2str(frame_num), '_prompts.', num2str(i), '.checkfile'];
+         if exist(file2check, 'file')
+             cf_exists(1,i) = 1;
+         end
+    end
+    if sum(cf_exists) == 8
+        not_done = false;
+        fprintf('all checkfiles created');
+    end
+    pause(0.01);
+end
 
+%now check, if it has been deleted again (i.e. process is finished)
+files_done = zeros(1,8);
+not_done = true;
+while not_done
+     for i = 1:8
+        % check if temp file has been deleted indicating the process is done
+        file2check = [handles.server_recon_data_dir,'/',outfolder_server_temp, '/lm_reorder_f', num2str(frame_num), '_prompts.', num2str(i), '.checkfile'];
+        fprintf('\nchecking file %d...', i);
+        if ~exist(file2check, 'file')
+            files_done(1,i) = 1;
+            disp('checkfile deleted. done.');
+        else
+            disp('not done.');
+        end
+    end
+    if sum(files_done) == 8
+        not_done = false;
+        disp('all attn files created');
+    else
+        pause(2.0);
+        fprintf('\nchecking again ...\n');
+    end   
+end
+
+fprintf('done with attenuation forward projection.\n');
+pause(0.1);
 end
 
 

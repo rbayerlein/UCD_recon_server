@@ -37,7 +37,7 @@ pause(0.1);
 fprintf(fid_log, 'start of recon_scheduler_server\n');
 %%
 
-fprintf(fid_log, 'copying handles file to lm outfolder'); fprintf('copying handles file to lm outfolder');
+fprintf(fid_log, 'copying handles file to lm outfolder\n'); fprintf('copying handles file to lm outfolder\n');
 cmd_cp = ['cp ', handles_name, ' ', handles.lm_outfolder];
 system(cmd_cp);
 pause(0.1);
@@ -215,7 +215,7 @@ while not_done
       addpath(p_attn); 
 
       % run script that adds attenuation factors to add_fac files 
-      fprintf(fid_log, 'now running attn_fp to create the attenuation factors\n');fprintf('now running attn_fp to create the attenuation factors\n');
+      fprintf(fid_log, 'now running attn_fp to create the attenuation factors for frame number %d\n', m);fprintf('now running attn_fp to create the attenuation for frame number %d\n', m);
       attn_fp(m); % m is frame number
       pause(0.1);
       fprintf(fid_log, 'done running attn_fp.\n');fprintf('done running attn_fp.\n');

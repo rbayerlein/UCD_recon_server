@@ -76,6 +76,7 @@ sino_t_ssrb = zeros(img_size(1),img_size(2),2*img_size(3)-1);
 sino_s_ssrb = zeros(img_size(1),img_size(2),2*img_size(3)-1);
 
 % get masked sinograms (mich, ssrb)
+disp('getting masked sinograms (takes up to 30 sec)');
 for axB = 1:img_size(4)
     for axA = 1:img_size(3)
         
@@ -103,10 +104,21 @@ for axB = 1:img_size(4)
         % add to ssrb
         sino_pd_ssrb(:,:,axA+axB-1) = sino_pd_ssrb(:,:,axA+axB-1) + masked_pd;
         sino_t_ssrb(:,:,axA+axB-1) =  sino_t_ssrb(:,:,axA+axB-1) + masked_t;
-        sino_s_ssrb(:,:,axA+axB-1) = sino_s_ssrb(:,:,axA+axB-1) + masked_s;
+        sino_s_ssrb(:,:,axA+axB-1) = sino_s_ssrb(:,:,axA+axB-1) + masked_s;    
+
     end
 end
 
+disp('setting those T+S entries to zero where P-D is also zero');
+% set those T+S entries to zero where P-D is also zero. 
+sino_t(sino_pd==0) = 0;
+sino_s(sino_pd==0) = 0;
+
+% set those T+S entries to zero where P-D is also zero. 
+disp('setting those T+S entries in ssrb sinos to zero where P-D is also zero');
+sino_t_ssrb(sino_pd_ssrb==0)=0;
+sino_s_ssrb(sino_pd_ssrb==0)=0;        
+        
 % find scaling factor (mich)
 disp('Finding scaling factor (mich)...');
 x_optimal = zeros(img_size(3),img_size(4));
@@ -190,7 +202,7 @@ sino_s_scaled_5d = zeros(img_size_sino_5d);
 for axB = 1:img_size(4)
     for axA = 1:img_size(3)
         sino_s_scaled(:,:,axA,axB) = x_optimal(axA,axB) * sino_s(:,:,axA,axB);
-        sino_s_scaled_5d(:,:,axA,axB,:) = x_optimal(axA,axB) * double(data_s_5d(:,:,axA,axB,:));
+        sino_s_scaled_5d(:,:,axA,axB,:) = x_optimal(axA,axB) * single(data_s_5d(:,:,axA,axB,:));
     end
 end
 clear data_s_5d;
@@ -314,7 +326,7 @@ fname_scale_factor = strcat(FILEPATH,'/',NAME,'.scale_fac');
 % fname_scale_factor_ssrb = strcat(FILEPATH,'/',NAME,'_ssrb.scale_fac');
 % fname_scale_factor_adaptive = strcat(FILEPATH,'/',NAME,'_adaptive.scale_fac');
 fprintf('Writing %s...\n',fname_s_scaled);
-fwrite(fopen(fname_s_scaled,'w'),sino_s_scaled_5d,'double');
+fwrite(fopen(fname_s_scaled,'w'),sino_s_scaled_5d, 'single');   % use single instead of double to limit file size.
 % fwrite(fopen(fname_s_scaled_ssrb,'w'),sino_s_scaled_ssrb,'double');
 % fwrite(fopen(fname_s_scaled_adaptive,'w'),sino_s_scaled_adaptive,'double');
 fwrite(fopen(fname_scale_factor,'w'),x_optimal,'double');

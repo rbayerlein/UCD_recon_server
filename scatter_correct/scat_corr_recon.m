@@ -74,6 +74,7 @@ bin_lm2blocksino_5d = [install_dir, 'simset/data_processing/lm2blocksino5d/lm2bl
 
 AddScatter2AddFac = [handles.install_dir_server, '/scatter_correct/AddScatter2add_fac/bin/AddScatter2add_fac'];
 AddScatter2AddFac_5d = [handles.install_dir_server, '/scatter_correct/AddScatter2add_fac/bin/AddScatter2add_fac_sino5d'];
+as2af_s5_par = [handles.install_dir_server, '/scatter_correct/AddScatter2add_fac/bin/as2af_s5_par']; % add scatter to add fac 5d sino run in parallel
 
 % LUT
 fname_lut = [bin_lm2blocksino(1:strfind(bin_lm2blocksino,'/bin')), 'include/index_blockpairs_transaxial_2x91x60_int16'];
@@ -88,8 +89,8 @@ n_bins = 2301; % number of available bins for a-map sampling - same as number of
 num_threads_avail = 44;    % actually it's 48 but should leave a few empty to prevent lagging. 
 num_threads_per_frame = num_threads_avail;
 
-max_num_to_simulate = 1e+11;
-min_num_to_simulate = 1e+8;
+max_num_to_simulate = 1e+10;    %10 bn
+min_num_to_simulate = 1e+8;     %100 mio
 % detector normalization files
 crys_eff = [handles.dcm_dir_init_ucd_server, '/crys_eff_679x840'];
 plane_eff = [handles.dcm_dir_init_ucd_server, '/plane_eff_679x679'];
@@ -103,7 +104,16 @@ scatter_data_exist = true;
 
 if exist(dir_scatter_data, 'dir')
     %check if sino4d file exists
-    dir_struct = dir(fullfile(dir_scatter_data, '*.sino4d'));
+    if blk_sino_dim == 4
+        dir_struct = dir(fullfile(dir_scatter_data, '*.sino4d'));
+    %check if sino5d file exists
+    elseif blk_sino_dim == 5
+        dir_struct = dir(fullfile(dir_scatter_data, '*.sino5d'));
+    else
+        fprintf(fid_log,'WRONG BLOCK SINOGRAM DIMENSION!');
+        error('WRONG BLOCK SINOGRAM DIMENSION!');
+    end
+    
     if numel(dir_struct) == 0
         scatter_data_exist = false;
     end 
@@ -210,7 +220,12 @@ if scatter_data_exist
     data_delay = fread(fid_d,'double');
 
     data_pd = data_prompt - data_delay;
-
+    
+    % taking the zeros out (non-negativity constraint)
+    f=numel(find(data_pd<0)) / numel(data_pd);
+    fprintf(fid_log, 'fraction of zeros in the p-d sinogram: %d\n', f); fprintf('fraction of zeros in the p-d sinogram: %d\n', f);
+    data_pd(data_pd<0) = 0;
+        
     fid_pd = fopen(fname_pd, 'w');
     fwrite(fid_pd,data_pd,'double');
 
@@ -249,7 +264,8 @@ if scatter_data_exist
     if blk_sino_dim == 4
         cmd_as2af = sprintf('%s %s %s %s %s %s %s %d', AddScatter2AddFac, lm_data_folder, fname_sino_scaled, user, fname_lut, crys_eff, plane_eff, frame_num);
     elseif blk_sino_dim == 5
-        cmd_as2af = sprintf('%s %s %s %s %s %s %s %d', AddScatter2AddFac_5d, lm_data_folder, fname_sino_scaled, user, fname_lut, crys_eff, plane_eff, frame_num);
+    %    cmd_as2af = sprintf('%s %s %s %s %s %s %s %d', AddScatter2AddFac_5d, lm_data_folder, fname_sino_scaled, user, fname_lut, crys_eff, plane_eff, frame_num);
+        cmd_as2af = sprintf('%s %s %s %s %s %s %d', as2af_s5_par, lm_data_folder, fname_sino_scaled, fname_lut, crys_eff, plane_eff, frame_num);
     else
         fprintf(fid_log,'WRONG BLOCK SINOGRAM DIMENSION!');
         error('WRONG BLOCK SINOGRAM DIMENSION!');
@@ -309,7 +325,7 @@ for iter = 1 : handles.osem_iter
     
     not_done = true;
     waitcounter=0; % just for control
-    waittime = 10.0;
+    waittime = 30.0;
     while not_done  
         msg = ['Estimated time elapsed since start: ', num2str(waitcounter*waittime), ' s'];
         fprintf(fid_log, '%s\n', msg); disp(msg);
@@ -381,7 +397,7 @@ for iter = 1 : handles.osem_iter
     
     % skip scatter correction part if it's the last iteration
     if iter == handles.osem_iter
-        fprintf(fid_log, 'finished recon of last iteration. no scatter correction neccessary.'); disp('finished recon of last iteration. no scatter correction neccessary.');
+        fprintf(fid_log, 'finished recon of last iteration. no scatter correction neccessary.\n'); disp('finished recon of last iteration. no scatter correction neccessary.');
         break; % break out of big for loop
     end
 
@@ -563,22 +579,22 @@ for iter = 1 : handles.osem_iter
     fclose(fid_phg_sh);
 
     % double-check in log file
-    fprintf(fid_log,'%s\n','#!/bin/bash');
-    fprintf(fid_log,'\n');
-    fprintf(fid_log,'%s%d\n','iter_num=',iter);
-    fprintf(fid_log,'\n');
-    fprintf(fid_log,'%s%d\n','num_threads=',num_threads_per_frame);
-    fprintf(fid_log,'\n');
-    fprintf(fid_log,'%s%s\n','fname_simset=',bin_phg);
-    fprintf(fid_log,'\n');
-    fprintf(fid_log,'%s%s\n','dir_phg_params=',dir_phg_params);
-    fprintf(fid_log,'%s%s\n','dir_simset_log=',dir_phg_log);
-    fprintf(fid_log,'\n');
-    fprintf(fid_log,'%s\n','echo "$(date): Starting simulations for iteration #${iter_num}..."');
-    fprintf(fid_log,'\n');
-    fprintf(fid_log,'%s\n','parallel --will-cite -j ${num_threads} "${fname_simset} ${dir_phg_params}/f$(printf %d ${iter_num})/{} > ${dir_simset_log}/f$(printf %d ${iter_num})/{}.log" ::: *.phg_params.$iter_num');
-    fprintf(fid_log,'\n');
-    fprintf(fid_log,'%s\n','echo "$(date): Finished simulations for iteration #${iter_num}."');
+%     fprintf(fid_log,'%s\n','#!/bin/bash');
+%     fprintf(fid_log,'\n');
+%     fprintf(fid_log,'%s%d\n','iter_num=',iter);
+%     fprintf(fid_log,'\n');
+%     fprintf(fid_log,'%s%d\n','num_threads=',num_threads_per_frame);
+%     fprintf(fid_log,'\n');
+%     fprintf(fid_log,'%s%s\n','fname_simset=',bin_phg);
+%     fprintf(fid_log,'\n');
+%     fprintf(fid_log,'%s%s\n','dir_phg_params=',dir_phg_params);
+%     fprintf(fid_log,'%s%s\n','dir_simset_log=',dir_phg_log);
+%     fprintf(fid_log,'\n');
+%     fprintf(fid_log,'%s\n','echo "$(date): Starting simulations for iteration #${iter_num}..."');
+%     fprintf(fid_log,'\n');
+%     fprintf(fid_log,'%s\n','parallel --will-cite -j ${num_threads} "${fname_simset} ${dir_phg_params}/f$(printf %d ${iter_num})/{} > ${dir_simset_log}/f$(printf %d ${iter_num})/{}.log" ::: *.phg_params.$iter_num');
+%     fprintf(fid_log,'\n');
+%     fprintf(fid_log,'%s\n','echo "$(date): Finished simulations for iteration #${iter_num}."');
 
     % copy everything to sim node 001
 
@@ -705,7 +721,7 @@ for iter = 1 : handles.osem_iter
     if blk_sino_dim ==4
         cmd = sprintf('%s f%d.%d_scatters.lm f%d.%d_scatters.sino4d %s', bin_lm2blocksino, iter, iter, iter, iter, fname_lut);
     elseif blk_sino_dim ==5
-        cmd = sprintf('%s f%d.%d_scatters.lm f%d.%d_scatters.sino5 %s', bin_lm2blocksino_5d, iter, iter, iter, iter, fname_lut);
+        cmd = sprintf('%s f%d.%d_scatters.lm f%d.%d_scatters.sino5d %s', bin_lm2blocksino_5d, iter, iter, iter, iter, fname_lut);
     else
         fprintf(fid_log,'WRONG BLOCK SINOGRAM DIMENSION!');
         error('WRONG BLOCK SINOGRAM DIMENSION!');
@@ -716,8 +732,8 @@ for iter = 1 : handles.osem_iter
           
           
 % copy sinogram to study directory
-    cmd_cp_scat = sprintf('cp f%d.%d_scatters.sino4d %s', iter, iter, dir_scatter_data);
-    cmd_cp_true = sprintf('cp f%d.%d_trues.sino4d %s', iter, iter, dir_scatter_data);
+    cmd_cp_scat = sprintf('cp f%d.%d_scatters.sino%dd %s', iter, iter, blk_sino_dim, dir_scatter_data);
+    cmd_cp_true = sprintf('cp f%d.%d_trues.sino%dd %s', iter, iter, blk_sino_dim, dir_scatter_data);
     fprintf(fid_log, 'copying sinograms to study dir using commands \n%s\nand\n%s\n', cmd_cp_scat, cmd_cp_true);
     fprintf('copying sinograms to study dir using commands \n%s\nand\n%s\n', cmd_cp_scat, cmd_cp_true);
     system(cmd_cp_scat);
@@ -788,7 +804,12 @@ for iter = 1 : handles.osem_iter
         data_delay = fread(fid_d,'double');
 
         data_pd = data_prompt - data_delay;
-
+        
+        % taking the zeros out (non-negativity constraint)
+        f=numel(find(data_pd<0)) / numel(data_pd);
+        fprintf(fid_log, 'fraction of zeros in the p-d sinogram: %d\n', f); fprintf('fraction of zeros in the p-d sinogram: %d\n', f);
+        data_pd(data_pd<0) = 0;
+        
         fid_pd = fopen(fname_pd, 'w');
         fwrite(fid_pd,data_pd,'double');
 
@@ -820,7 +841,6 @@ for iter = 1 : handles.osem_iter
     system(cmd_cp);
     pause(0.1);
     
-    
 % create updated add_fac file
     fprintf(fid_log, 'creating updated add_fac file with scatter data\n'); disp('creating updated add_fac file with scatter data');
     % "usage: " << argv[0] << " [lm_folder_name] " << " [scaled_sino] " << " [user_name] " << " [index_blockpairs_transaxial_2x91x60_int16] " << " [nc_file]"
@@ -829,7 +849,8 @@ for iter = 1 : handles.osem_iter
     if blk_sino_dim == 4
         cmd_as2af = sprintf('%s %s %s %s %s %s %s %d', AddScatter2AddFac, lm_data_folder, fname_sino_scaled, user, fname_lut, crys_eff, plane_eff, frame_num);
     elseif blk_sino_dim == 5
-        cmd_as2af = sprintf('%s %s %s %s %s %s %s %d', AddScatter2AddFac_5d, lm_data_folder, fname_sino_scaled, user, fname_lut, crys_eff, plane_eff, frame_num);
+     %   cmd_as2af = sprintf('%s %s %s %s %s %s %s %d', AddScatter2AddFac_5d, lm_data_folder, fname_sino_scaled, user, fname_lut, crys_eff, plane_eff, frame_num);
+        cmd_as2af = sprintf('%s %s %s %s %s %s %d', as2af_s5_par, lm_data_folder, fname_sino_scaled, fname_lut, crys_eff, plane_eff, frame_num);
     else
         fprintf(fid_log,'WRONG BLOCK SINOGRAM DIMENSION!');
         error('WRONG BLOCK SINOGRAM DIMENSION!');
@@ -851,7 +872,7 @@ pause(0.1);
 fprintf(fid_log, 'done scat_corr_recon.\n');
 fprintf('done scat_corr_recon.\n');
 fclose(fid_log);
-% quit;
+%quit;
 end % function 
 
 

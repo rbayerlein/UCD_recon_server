@@ -1476,10 +1476,12 @@ int main(int argc, char **argv) {
 
 				transA = (crys1 % 70) + (modA * 70);
 				transB = (crys2 % 70) + (modB * 70); 
+				// get transaxial position within current detector bank, add number of banks times 70 (which is # crys per bank)
 
 				axA = floor(crys1 / 70) + (unitA * 84);
 				axB = floor(crys2 / 70) + (unitB * 84);
-		
+				// explanation: two detector modules of 35 transaxial crystals each make up one "detector bank" of 70 transaxial crystals.
+				// get axial ring number within current detector bank, add number of units times 84 rings to get absolute axial ID.
 
 				blkXa = floor(transA / 7);
 				blkXb = floor(transB / 7);
@@ -1642,10 +1644,6 @@ int main(int argc, char **argv) {
 
 								rtemp = (float) sino_module_r_avg[ind_module1] * ((float) SUBS.GetTotalLORExposure(axA,axB)*1000) / (float) r_frame;
 								// factor 1000 because exposure time is in seconds and everything else here is in ms.
-
-
-				//				rtemp = (float) sino_module_r_avg[ind_module1] * ((float) SUBS.) UNFINISHED!!!
-
 
 
 								//rtemp = rtemp / (2.0 * (float)num_lor_modpair);

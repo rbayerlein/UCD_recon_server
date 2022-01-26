@@ -262,7 +262,7 @@ int main(int argc, char **argv) {
 			// get crystal IDs
 			short txCrysA = pids_in[i].txIDA;
 			short txCrysB = pids_in[i].txIDB;
-			short axCrysA = pids_in[i].axIDA; - (pids_in[i].axIDA / num_ax_crys_per_unit_w_gap);
+			short axCrysA = pids_in[i].axIDA - (pids_in[i].axIDA / num_ax_crys_per_unit_w_gap);
 			short axCrysB = pids_in[i].axIDB - (pids_in[i].axIDB / num_ax_crys_per_unit_w_gap);
 			short axCrysA_w_gap = pids_in[i].axIDA;
 			short axCrysB_w_gap = pids_in[i].axIDB;
@@ -360,6 +360,20 @@ int main(int argc, char **argv) {
 	fwrite(add_fac_out, sizeof(float), buffer_indx, pOutputFile_add_fac);
 	fwrite(scat_fac , sizeof(float), buffer_indx, pOutputFile_scat_fac);
 
+	cout << "-> closing all files" << endl;
+	delete[] pids_in;
+	delete[] add_fac_out;
+	delete[] add_fac;
+	delete[] attn_fac;
+	delete[] scat_fac;
+	delete[] mul_fac;
+	fclose(pInputFile_lm);
+	fclose(pInputFile_mul_fac);
+	fclose(pInputFile_add_fac);
+	fclose(pOutputFile_add_fac);
+	fclose(pOutputFile_scat_fac);
+	fclose(pInputFile_attn_fac);
+	
 	// re-name original file and save new file under original name
 	cout << "-> deleting existing *.add_fac and renaming new file to *.add_fac" << endl;
 
@@ -380,19 +394,6 @@ int main(int argc, char **argv) {
 	}	 
 
 
-	cout << "-> closing all files" << endl;
-	delete[] pids_in;
-	delete[] add_fac_out;
-	delete[] add_fac;
-	delete[] attn_fac;
-	delete[] scat_fac;
-	delete[] mul_fac;
-	fclose(pInputFile_lm);
-	fclose(pInputFile_mul_fac);
-	fclose(pInputFile_add_fac);
-	fclose(pOutputFile_add_fac);
-	fclose(pOutputFile_scat_fac);
-	fclose(pInputFile_attn_fac);
 
 	cout << "done" << endl;
 
