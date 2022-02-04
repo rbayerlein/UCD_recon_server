@@ -57,7 +57,7 @@ int main(int argc, char **argv) {
 	ofstream o_check;
 	o_check.open(checkfile_name.c_str());
 	o_check.close();
-	usleep(1000000);	// sleep for 1000000 microseconds = 1000ms = 1s
+	sleep(10);	// sleep for 10s
 
 	// get add fac and mul fac files
 	stringstream ss_add_fac, ss_mul_fac, ss_add_fac_out, ss_mul_fac_out;

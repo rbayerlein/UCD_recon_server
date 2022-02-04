@@ -73,7 +73,7 @@ bin_lm2blocksino_5d = [install_dir, 'simset/data_processing/lm2blocksino5d/lm2bl
 %bin_scatter_add_fac =[install_dir, 'simset/data_processing/scatter_add_fac/bin/scatter_add_fac']; %#ok
 
 AddScatter2AddFac = [handles.install_dir_server, '/scatter_correct/AddScatter2add_fac/bin/AddScatter2add_fac'];
-AddScatter2AddFac_5d = [handles.install_dir_server, '/scatter_correct/AddScatter2add_fac/bin/AddScatter2add_fac_sino5d'];
+AddScatter2AddFac_5d = [handles.install_dir_server, '/scatter_correct/AddScatter2add_fac/bin/AddScatter2add_fac_sino5d']; %#ok<NASGU>
 as2af_s5_par = [handles.install_dir_server, '/scatter_correct/AddScatter2add_fac/bin/as2af_s5_par']; % add scatter to add fac 5d sino run in parallel
 
 % LUT
@@ -248,12 +248,20 @@ if scatter_data_exist
     end
     
 % move fname_sino_scaled_tmp to lm data folder
-    [~,NAME,EXT] = fileparts(fname_sino_scaled_tmp); % the ~ sign is a place holder, as that part of the file name will not be used later on
+    [FOLDER,NAME,EXT] = fileparts(fname_sino_scaled_tmp); % the ~ sign is a place holder, as that part of the file name will not be used later on
     fname_sino_scaled = [handles.lm_outfolder, NAME, EXT];
     cmd_cp = ['cp ', fname_sino_scaled_tmp, ' ', fname_sino_scaled];
     fprintf('copying sinogram to lm_outfolder using command %s\n', cmd_cp);
     fprintf(fid_log, 'copying sinogram to lm_outfolder using command %s\n', cmd_cp);
     system(cmd_cp);
+    pause(0.1);
+    
+% move scale factors to lm data folder
+    fname_scale_fac = [FOLDER, '/f', num2str(highest_iteration), '.', num2str(highest_iteration), '_scatters.scale_fac'];
+    cmd_cp_sf = ['cp ', fname_scale_fac, ' ', handles.lm_outfolder];
+    fprintf('copying scale factors to lm_outfolder using command %s\n', cmd_cp_sf);
+    fprintf(fid_log, 'copying scale factors to lm_outfolder using command %s\n', cmd_cp_sf);
+    system(cmd_cp_sf);
     pause(0.1);
     
 % create updated add_fac file
@@ -372,6 +380,15 @@ for iter = 1 : handles.osem_iter
         cmd_cp_2 = ['cp ', recon_file_name, ' ', handles.server_recon_data_dir,'/', outfolder_server_temp, '/img_guess_next_iter_f', num2str(frame_num)];
         fprintf(fid_log, 'creating image guess using command %s\n', cmd_cp_2); fprintf('creating image guess using command %s\n', cmd_cp_2);
         system(cmd_cp_2);
+        pause(0.1);
+        
+        %save image guess in outfolder to get intermediate steps
+        %during scatter correction process
+        cmd_cp_3 = ['cp ', handles.server_recon_data_dir,'/', outfolder_server_temp, '/img_guess_next_iter_f', num2str(frame_num), ' ', ...
+            handles.lm_outfolder, '/img_guess_iteration_', num2str(iter), '_f', num2str(frame_num)];
+        fprintf(fid_log, 'copying image guess of current iteration to lm_outfolder: %s\n', cmd_cp_3);
+        fprintf('copying image guess of current iteration to lm_outfolder: %s\n', cmd_cp_3);
+        system(cmd_cp_3);
         pause(0.1);
         
         %remove recon output files before starting new recon
@@ -833,7 +850,7 @@ for iter = 1 : handles.osem_iter
     end
     
 % move fname_sino_scaled_tmp to lm data folder
-    [~,NAME,EXT] = fileparts(fname_sino_scaled_tmp);
+    [FOLDER,NAME,EXT] = fileparts(fname_sino_scaled_tmp);
     fname_sino_scaled = [handles.lm_outfolder, NAME, EXT];
     cmd_cp = ['cp ', fname_sino_scaled_tmp, ' ', fname_sino_scaled];
     fprintf('copying sinogram to lm_outfolder using command %s\n', cmd_cp);
@@ -841,10 +858,16 @@ for iter = 1 : handles.osem_iter
     system(cmd_cp);
     pause(0.1);
     
+% move scale factors to lm data folder
+    fname_scale_fac = [FOLDER, '/f', num2str(iter), '.', num2str(iter), '_scatters.scale_fac'];
+    cmd_cp_sf = ['cp ', fname_scale_fac, ' ', handles.lm_outfolder];
+    fprintf('copying scale factors to lm_outfolder using command %s\n', cmd_cp_sf);
+    fprintf(fid_log, 'copying scale factors to lm_outfolder using command %s\n', cmd_cp_sf);
+    system(cmd_cp_sf);
+    pause(0.1);
+    
 % create updated add_fac file
     fprintf(fid_log, 'creating updated add_fac file with scatter data\n'); disp('creating updated add_fac file with scatter data');
-    % "usage: " << argv[0] << " [lm_folder_name] " << " [scaled_sino] " << " [user_name] " << " [index_blockpairs_transaxial_2x91x60_int16] " << " [nc_file]"
-    nc_file = [handles.path_choose_server, handles.fname_choose_base, '1.nc'];
     lm_data_folder = [handles.server_recon_data_dir, '/', outfolder_server_temp];
     if blk_sino_dim == 4
         cmd_as2af = sprintf('%s %s %s %s %s %s %s %d', AddScatter2AddFac, lm_data_folder, fname_sino_scaled, user, fname_lut, crys_eff, plane_eff, frame_num);

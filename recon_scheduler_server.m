@@ -165,7 +165,7 @@ while not_done
 
         cmd_combine = [handles.recon_path_server,cmd_combine,'\n\n']; 
         fprintf(fid, cmd_combine);
-
+% === can be deleted from here
         for lmk = 1:8
           str_delete_lm = ['rm ', handles.server_recon_data_dir,'/',outfolder_server_temp, '/lm_reorder_f',num2str(m),'_prompts.',num2str(lmk),'.lm\n\n']; 
         %  fprintf(fid,str_delete_lm); 
@@ -174,7 +174,7 @@ while not_done
           str_delete_add_fac = ['rm ', handles.server_recon_data_dir,'/',outfolder_server_temp, '/lm_reorder_f',num2str(m),'_prompts.',num2str(lmk),'.add_fac\n\n'];
         %  fprintf(fid, str_delete_add_fac); 
         end
-
+% ==== to here
         str = ['export OMP_NUM_THREADS=',num2str(handles.num_threads_server),'\n\n'];
       
         fprintf(fid,str);
@@ -305,7 +305,7 @@ while not_done
           handles.lm_outfolder, 'randoms* '...
           handles.lm_outfolder, 'singles* '];
           fprintf(fid_log, '%s\n', cmd_rm); fprintf(cmd_rm);
-        %  system(cmd_rm);
+          system(cmd_rm);
           pause(0.1);
 
           %copy lm and add fac files from temp dir to lm_outfolder
@@ -313,18 +313,27 @@ while not_done
           cmd_mv2 = ['cp ', handles.server_recon_data_dir, '/', handles.server_temp_dir{kk}, '/*prompts.add_fac.original ', handles.lm_outfolder ];
           cmd_mv3 = ['cp ', handles.server_recon_data_dir, '/', handles.server_temp_dir{kk}, '/*prompts.mul_fac ', handles.lm_outfolder ];
           cmd_mv4 = ['cp ', handles.server_recon_data_dir, '/', handles.server_temp_dir{kk}, '/*prompts.lm ', handles.lm_outfolder ];
+          cmd_mv5 = ['cp ', handles.server_recon_data_dir, '/', handles.server_temp_dir{kk}, '/*prompts.scat_fac ', handles.lm_outfolder ];
+          cmd_mv6 = ['cp ', handles.server_recon_data_dir, '/', handles.server_temp_dir{kk}, '/*prompts.attn_fac ', handles.lm_outfolder ];
+          cmd_mv7 = ['cp ', handles.server_recon_data_dir, '/', handles.server_temp_dir{kk}, '/*prompts.mul_fac.original ', handles.lm_outfolder ];
           fprintf(fid_log, 'copying lm files to lm_outfolder:\n%s\n', cmd_mv); fprintf('copying lm files to lm_outfolder');
-         % system(cmd_mv); pause(0.1);
+          system(cmd_mv); pause(0.1);
           fprintf(fid_log, 'copying lm files to lm_outfolder:\n%s\n', cmd_mv2); fprintf('copying lm files to lm_outfolder:\n%s\n', cmd_mv2);
-         % system(cmd_mv2); pause(0.1);
+          system(cmd_mv2); pause(0.1);
           fprintf(fid_log, 'copying lm files to lm_outfolder:\n%s\n', cmd_mv3); fprintf('copying lm files to lm_outfolder:\n%s\n', cmd_mv3);
-         % system(cmd_mv3); pause(0.1);
+          system(cmd_mv3); pause(0.1);
           fprintf(fid_log, 'copying lm files to lm_outfolder:\n%s\n', cmd_mv4); fprintf('copying lm files to lm_outfolder:\n%s\n', cmd_mv4);
-        %  system(cmd_mv4); pause(0.1); 
+          system(cmd_mv4); pause(0.1); 
+          fprintf(fid_log, 'copying lm files to lm_outfolder:\n%s\n', cmd_mv5); fprintf('copying lm files to lm_outfolder:\n%s\n', cmd_mv5);
+          system(cmd_mv5); pause(0.1);
+          fprintf(fid_log, 'copying lm files to lm_outfolder:\n%s\n', cmd_mv6); fprintf('copying lm files to lm_outfolder:\n%s\n', cmd_mv6);
+          system(cmd_mv6); pause(0.1);
+          fprintf(fid_log, 'copying lm files to lm_outfolder:\n%s\n', cmd_mv7); fprintf('copying lm files to lm_outfolder:\n%s\n', cmd_mv7);
+          system(cmd_mv7); pause(0.1); 
 
           % wipe the temporary dir on the server
           cmd_clean = ['cd ', handles.server_recon_data_dir,' && rm -r ', handles.server_temp_dir{kk},'/ ',]; 
-        %  system(cmd_clean); 
+          system(cmd_clean); 
           pause(0.01);
         end
         recon_frame_done(kk) = 1; 
