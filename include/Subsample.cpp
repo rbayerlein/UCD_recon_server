@@ -14,7 +14,15 @@ Subsample::Subsample(std::string s, int t) /*!< Takes the full path to the .raw 
 	: input_raw_fullpath(s)
 	, firstTimeStamp(t)
 {
-	createLogFile = true;
+	createLogFile = false;
+	//pre-initialize LUT with zeros
+	for (int i = 0; i < num_ax_crys; ++i)
+	{
+		for (int j = 0; j < num_ax_crys; ++j)
+		{
+			ExposureLUT[i][j] = 0;
+		}
+	}
 	Initialize();
 
 }
@@ -61,37 +69,23 @@ void Subsample::Initialize(){
 		cout << "could not open multi bed recon config file" << endl;
 		exit(1);
 	}
-	std::string str_temp =  "";
-	getline(config, str_temp);
-	stringstream ss_temp(str_temp);
-	ss_temp >> num_cycles;
+	for (int i = 0; i < 6; ++i)
+	{
+		std::string str_temp =  "";
+		getline(config, str_temp);
+		config_param[GetType(str_temp)] = GetParameterValue(str_temp);
+	}
 
-	str_temp =  "";
-	getline(config, str_temp);
-	stringstream ss_temp2(str_temp);
-	ss_temp2 >> start_ring;
-
-	str_temp =  "";
-	getline(config, str_temp);
-	stringstream ss_temp3(str_temp);
-	ss_temp3 >> rings_per_bed;
-
-	str_temp =  "";
-	getline(config, str_temp);
-	stringstream ss_temp4(str_temp);
-	ss_temp4 >> num_beds;	
-
-	str_temp =  "";
-	getline(config, str_temp);
-	stringstream ss_temp5(str_temp);
-	ss_temp5 >> bed_overlap;	
+	num_cycles = config_param[0];
+	start_ring = config_param[1];
+	rings_per_bed = config_param[2];
+	num_beds = config_param[3];
+	bed_overlap = config_param[4];
+	time_per_bed = config_param[5];
 
 
-	str_temp =  "";
-	getline(config, str_temp);
-	stringstream ss_temp6(str_temp);
-	ss_temp6 >>	time_per_bed;
 
+	cout << "====================================\nSUMMARY OF CONFIG PARAMETERS"<< endl;
 	cout << "number of scans per bed position:\t" << num_cycles 
 	<< "\nstart ring\t\t\t\t" << start_ring 
 	<< "\nnumber of rings per bed position\t" << rings_per_bed
@@ -124,7 +118,7 @@ void Subsample::Initialize(){
 	}
 
 	cout << "first time stamp set: \t" << firstTimeStamp << "sec = " << (int)firstTimeStamp/3600 << "h:" << ((int)firstTimeStamp%3600)/60 << "min:" << ((int)firstTimeStamp%3600)%60 << "s" << endl;
-
+	cout << "will create exposure LUT next"<< endl;
 
 // fill log file if desired
 	if (createLogFile)
@@ -147,8 +141,18 @@ void Subsample::Initialize(){
 		}
 
 		o_LOG << "first time stamp set: \t" << firstTimeStamp << "sec = " << (int)firstTimeStamp/3600 << "h:" << ((int)firstTimeStamp%3600)/60 << "min:" << ((int)firstTimeStamp%3600)%60 << "s" << endl;
+		o_LOG << "will create exposure LUT next"<< endl;
+		
+	}
+
+	FillExposureTable();	// fill LUT with amount of time each crystal ring pair is exposed to activity and contributes to the list mode data set
+
+	cout << "done" << endl;
+	if (createLogFile){
+		o_LOG << "done" << endl;
 		o_LOG.close();
-	}	
+	}
+
 }
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
@@ -187,3 +191,63 @@ void Subsample::Initialize(){
 	}
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
+
+int Subsample::GetType(string s){
+	string str_find = "=";
+	size_t found = s.find(str_find);
+	string s_type = s.substr(0,found);
+	if( s_type == "num_cycles_per_bed"){
+			cout << "type: " << s_type ;
+			return 0;
+	}else if(s_type == "start_ring"){
+			cout << "type: " << s_type ;
+			return 1;
+	}else if (s_type ==  "num_rings_per_bed"){
+			cout << "type: " << s_type ;
+			return 2;
+	}else if(s_type ==  "num_beds"){
+			cout << "type: " << s_type ;
+			return 3;
+	}else if(s_type == "num_rings_overlap"){
+			cout << "type: " << s_type ;
+			return 4;
+	}else if(s_type == "time_per_bed"){
+			cout << "type: " << s_type ;
+			return 5;
+	}else{
+			cout << "unknown parameter type" << endl;
+			exit(1);
+	}
+}
+
+//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
+
+int Subsample::GetParameterValue(string s){
+	string str_find = "=";
+	size_t found = s.find(str_find);
+	string s_val = s.substr(found+1,s.length());
+	stringstream ss_temp(s_val);
+	int val = 0;
+	ss_temp >> val;
+	cout << "; value: " << val << endl;
+	return val;
+}
+
+//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
+
+void Subsample::FillExposureTable(){
+	// exposure time is in seconds
+	// loop over all bed positions
+	for (int bed = 1; bed < num_beds+1; ++bed)
+	{
+		cout << "bed " << bed << endl;
+		int this_bed_start = start_ring + (bed-1)*(rings_per_bed-bed_overlap);
+		int this_bed_end = this_bed_start + rings_per_bed-1;
+		cout << "this_bed_start: " << this_bed_start << "; this_bed_end: " << this_bed_end << endl;
+		for(int i = this_bed_start; i <this_bed_end+1; ++i){
+			for(int j = this_bed_start; j <this_bed_end+1; ++j){
+				ExposureLUT[i-1][j-1] += time_per_bed*num_cycles;	// [i-1] and [j-1] because C++ uses zero indexing
+			}
+		}
+	}// end of loop over bed positions
+}// end of function bracket

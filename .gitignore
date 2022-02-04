@@ -3,10 +3,13 @@
 Reconstruction_Parameters_*
 *.zip
 *.o
+*.asv
 
 read_lm/process_lm_sino_explorer_singlefile_release
 read_lm/lut/block_sino_f0_scatters*
 read_lm/lut/roi_mask_256x256x830.img
+read_lm/lmrecon_exploer/app/lmrecon_tof_fp_output
+scatter_correct/AddScatter2add_fac/bin/as2af_s5_par
 
 # folders 
 dir_temp/
@@ -15,3 +18,5 @@ nema/
 reconstruction/correction_sino/*
 read_lm/lut/block_sino_f0_scatters*
 reconstruction/normalization/20200101/
+read_lm/generate_lm_attn_fp_exp/lm_attn_fp_exp/*
+read_lm/generate_lm_attn_fp_exp/cfg_attn_fp_exp/*

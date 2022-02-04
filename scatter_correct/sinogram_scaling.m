@@ -37,10 +37,10 @@ n_ax_blk_per_unit = 14;
 
 % for plotting
 ssrb_i = 81; % 112;
-% axAi = 31; %70; %30; % 39
-% axBi = 31; %70; %30; % 39
-% axAj = 59; %84;
-% axBj = 7; %29;
+axAi = 31; %70; %30; % 39
+axBi = 31; %70; %30; % 39
+axAj = 59; %84;
+axBj = 7; %29;
 
 % adaptive ssrb
 cv_threshold = 0.1;
@@ -241,17 +241,18 @@ legend('Experimental (P-D)','Simulation (T+S)','P-D-S','Simulation (T)','Simulat
 title('SSRB');
 set(gca,'FontSize',11,'FontWeight','bold');
 
-% figure();
-% plot(sino_pd(:,1,axAi,axBi),'-b'); hold on;
-% plot((sino_t(:,1,axAi,axBi)+sino_s(:,1,axAi,axBi))*x_optimal(axAi,axBi),'--b');
-% plot(sino_pd(:,1,axAi,axBi)-sino_s_scaled(:,1,axAi,axBi),'-r');
-% plot(sino_t(:,1,axAi,axBi)*x_optimal(axAi,axBi),'--r');
-% plot(sino_s_scaled(:,1,axAi,axBi),'-k');
-% ylabel('Counts'); xlabel('Bin number');
-% legend('Experimental (P-D)','Simulation (T+S)','P-D-S','Simulation (T)','Simulation (S)');
-% title('Direct plane');
-% set(gca,'FontSize',11,'FontWeight','bold');
-% 
+
+subplot(1,2,1);
+plot(sino_pd(:,1,axAi,axBi),'-b'); hold on;
+plot((sino_t(:,1,axAi,axBi)+sino_s(:,1,axAi,axBi))*x_optimal(axAi,axBi),'--b');
+plot(sino_pd(:,1,axAi,axBi)-sino_s_scaled(:,1,axAi,axBi),'-r');
+plot(sino_t(:,1,axAi,axBi)*x_optimal(axAi,axBi),'--r');
+plot(sino_s_scaled(:,1,axAi,axBi),'-k');
+ylabel('Counts'); xlabel('Bin number');
+legend('Experimental (P-D)','Simulation (T+S)','P-D-S','Simulation (T)','Simulation (S)');
+title('Direct plane');
+set(gca,'FontSize',11,'FontWeight','bold');
+
 % figure();
 % plot(sino_pd(:,1,axAj,axBj),'-b'); hold on;
 % plot((sino_t(:,1,axAj,axBj)+sino_s(:,1,axAj,axBj))*x_optimal(axAj,axBj),'--b');
@@ -299,18 +300,18 @@ end
 
 %% write out
 
-[FILEPATH,~,EXT] = fileparts(fname_s);
+[FILEPATH,NAME,EXT] = fileparts(fname_s);
 fname_s_scaled = strcat(FILEPATH,'/',basename_scaled,'_scaled',EXT);
 % fname_s_scaled_ssrb = strcat(FILEPATH,'/',NAME,'_scaled_ssrb',EXT);
 % fname_s_scaled_adaptive = strcat(FILEPATH,'/',NAME,'_scaled_adaptive',EXT);
-% fname_scale_factor = strcat(FILEPATH,'/',NAME,'.scale_fac');
+fname_scale_factor = strcat(FILEPATH,'/',NAME,'.scale_fac');
 % fname_scale_factor_ssrb = strcat(FILEPATH,'/',NAME,'_ssrb.scale_fac');
 % fname_scale_factor_adaptive = strcat(FILEPATH,'/',NAME,'_adaptive.scale_fac');
 fprintf('Writing %s...\n',fname_s_scaled);
 fwrite(fopen(fname_s_scaled,'w'),sino_s_scaled,'double');
 % fwrite(fopen(fname_s_scaled_ssrb,'w'),sino_s_scaled_ssrb,'double');
 % fwrite(fopen(fname_s_scaled_adaptive,'w'),sino_s_scaled_adaptive,'double');
-% fwrite(fopen(fname_scale_factor,'w'),x_optimal,'double');
+fwrite(fopen(fname_scale_factor,'w'),x_optimal,'double');
 % fwrite(fopen(fname_scale_factor_ssrb,'w'),x_optimal_ssrb,'double');
 % fwrite(fopen(fname_scale_factor_adaptive,'w'),x_optimal_adaptive,'double');
 % fclose('all');

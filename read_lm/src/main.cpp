@@ -304,7 +304,8 @@ int main(int argc, char **argv) {
 	int nv, nu, nvtemp, nutemp, ntemp = 0;
 	int sino_ax_span = 10000;
 	int block_ax_span = 2;
-	int num_lor_modpair = 4323270; //2940!/(2!*2938!) + 2940  // number of ways to choose two crystals from two modules, whereby (1,2) and (2,1) would not be counted separately
+//	int num_lor_modpair = 4323270; //2940!/(2!*2938!) + 2940  // number of ways to choose two crystals from two modules, whereby (1,2) and (2,1) would not be counted separately
+	int num_lor_modpair = pow(14*5*(7*6),2);
 	int num_lor_blkpair = 903;	//same here: number of pairs between 2 blocks, but (1,2) and (2,1) not counted separately
 	int michel_ind = 0;
 
@@ -972,18 +973,18 @@ int main(int argc, char **argv) {
 			// start check event type
 			if (COINC::IsBlockRate(pRawBuffer[i])) {
 				uid = COINC::GetUnitID(pRawBuffer[i]);
-				blkX = COINC::GetBlockIDX(pRawBuffer[i]); // absolute block IDX
-				br_temp = COINC::GetBlockRate(pRawBuffer[i]);
-				blkY = COINC::GetBlockIDY(pRawBuffer[i]) + (uid * 14); // absolute block IDY
+				blkX = COINC::GetBlockIDX(pRawBuffer[i]); // absolute block IDX (transaxial direction)
+				br_temp = COINC::GetBlockRate(pRawBuffer[i]); // Number of counts in the block in the 100 ms period
+				blkY = COINC::GetBlockIDY(pRawBuffer[i]) + (uid * 14); // absolute block IDY (axial direction)
 				modA = floor(blkX / 5) + (24 * floor(blkY / 14));
 				ind = blkX + (120 * blkY); // global block ID
 				block_rate_new[ind] = block_rate_new[ind]
-						+ ((double) br_temp * 10.0);
+						+ ((double) br_temp * 10.0); // number of counts in 1.0 s
 				block_rate_counts[ind] += 1.0;
 				module_rate_new[modA] = module_rate_new[modA]
 						+ ((double) br_temp * 10.0);
 				module_rate_counts[modA] = module_rate_counts[modA]
-						+ (1.0 / 70.0);
+						+ (1.0 / 70.0);	// 70 blocks per module; used to extrapolate from block rate to module rate later on
 				byte_location += 8; // move to next event (8 bytes)
 			} else if (COINC::IsTimestamp(pRawBuffer[i])) {
 				day1 = COINC::GetDay(pRawBuffer[i]);
@@ -1012,7 +1013,7 @@ int main(int argc, char **argv) {
 					for (int bk = 0; bk < num_blocks; bk++) {
 						if (block_rate_counts[bk] > 1.0) {
 							block_rate[bk] = block_rate_new[bk]
-									/ block_rate_counts[bk];
+									/ block_rate_counts[bk];	// mean block rate
 						} else {
 							block_rate[bk] = 00.0;
 						}
@@ -1027,19 +1028,19 @@ int main(int argc, char **argv) {
 						random_rate_new[mk] = 0.0;
 						if (module_rate_counts[mk] > 1.0) {
 							module_rate[mk] = module_rate_new[mk]
-									/ module_rate_counts[mk];
+									/ module_rate_counts[mk];	// mean rate per module
 						} else {
 							module_rate[mk] = 0.0;
 						}
 						module_rate_new[mk] = 0.0;
 						module_rate_counts[mk] = 0.0;
 					}
-					for (int bbi = 0; bbi < (24 * 8); bbi++) { // make dead-time block pair array
+					for (int bbi = 0; bbi < (24 * 8); bbi++) { // make dead-time module pair array
 						for (int bbj = 0; bbj < (24 * 8); bbj++) {
 							DTtemp1 = 1.0;
 							DTtemp2 = 1.0;
 							// 1
-							floodtemp = module_rate[bbi] - singles_bkg;
+							floodtemp = module_rate[bbi] - singles_bkg; // singles_bkg = 36000.0
 							if (floodtemp < 10.0) {
 								floodtemp = 10.0;
 							}
@@ -1238,12 +1239,12 @@ int main(int argc, char **argv) {
 				ind = blkX + (120 * blkY); // global block ID
 
 				block_rate_new[ind] = block_rate_new[ind]
-						+ ((double) br_temp * 10.0);
+						+ ((double) br_temp * 10.0); // br_temp is given in counts within 100ms; therefore multiply by 10 to get counts within 1s.
 				block_rate_counts[ind] += 1.0;
 				module_rate_new[modA] = module_rate_new[modA]
-						+ ((double) br_temp * 10.0);
+						+ ((double) br_temp * 10.0);	// sums up the measured block rates in module modA
 				module_rate_counts[modA] = module_rate_counts[modA]
-						+ (1.0 / 70.0);
+						+ (1.0 / 70.0); // counts number of count rate entries per block in module modA (details: lab book p86 rbayerlein)
 			} else if (COINC::IsTimestamp(pRawBuffer[i]) || next_frame) { // if timestamp or near eof (next_frame flag)
 				day1 = COINC::GetDay(pRawBuffer[i]);
 				year1 = COINC::GetYear(pRawBuffer[i]);
@@ -1412,8 +1413,8 @@ int main(int argc, char **argv) {
 
 							DTtemp2 = xxnew / floodtemp;
 							xxnew = 0.0;
-							//DTtemp = (DTtemp1 + DTtemp2) / 2.0;
-							DTtemp = sqrt(DTtemp1) * sqrt(DTtemp2);
+							DTtemp = (DTtemp1 + DTtemp2) / 2.0;
+							//DTtemp = sqrt(DTtemp1) * sqrt(DTtemp2);
 							//if (DTtemp < 0.99) {
 							//	DTtemp = 1.0;
 							//}
@@ -1476,10 +1477,12 @@ int main(int argc, char **argv) {
 
 				transA = (crys1 % 70) + (modA * 70);
 				transB = (crys2 % 70) + (modB * 70); 
+				// get transaxial position within current detector bank, add number of banks times 70 (which is # crys per bank)
 
 				axA = floor(crys1 / 70) + (unitA * 84);
 				axB = floor(crys2 / 70) + (unitB * 84);
-		
+				// explanation: two detector modules of 35 transaxial crystals each make up one "detector bank" of 70 transaxial crystals.
+				// get axial ring number within current detector bank, add number of units times 84 rings to get absolute axial ID.
 
 				blkXa = floor(transA / 7);
 				blkXb = floor(transB / 7);
@@ -1612,14 +1615,15 @@ int main(int argc, char **argv) {
 							}
 							
 							mtemp = 1.0;
-							mtemp = (float) DT_fac[modA + 24 * unitA][modB
-									+ 24 * unitB];
+							mtemp = mtemp / (float) DT_fac[modA + 24 * unitA][modB + 24 * unitB];
+
 
 							// add decay correction, 05/24/2021, rbayerlein
 							time_elapsed = hour1*60*60+minute1*60+second1 - firstTimeStamp;
 							DF_eff = pow(0.5, (double)(time_elapsed/decay_time_constant));	// from S.Cherry, Physics in Nuclear Medicine, v.4, p.36
-							DF = 1/DF_eff;
-							mtemp = mtemp * DF;
+							//DF = 1/DF_eff;
+							//mtemp = mtemp * DF;
+							mtemp = mtemp * DF_eff;
 
 							if (r_singles) { // false, 08/18/2021, rbayerlein
 								singles_c1 = block_rate[blk_absA] / 42.0;
@@ -1634,19 +1638,25 @@ int main(int argc, char **argv) {
 								//rtemp = rtemp * t_window * 1E-12;
 							} else {
 
-								rtemp = (float) sino_module_r_avg[ind_module1]
-										* ((float) frame_length[frame_num]
-												/ (float) r_frame); // Mean number of randoms of each module pair for the whole recon frame length
+							//	rtemp = (float) sino_module_r_avg[ind_module1]
+							//			* ((float) frame_length[frame_num]
+							//					/ (float) r_frame); // Mean number of randoms of each module pair for the whole recon frame length
 
-								//rtemp = rtemp / (2.0 * (float)num_lor_modpair);
+
+								rtemp 	= 0.5 * ((float) sino_module_r_avg[ind_module1] + (float) sino_module_r_avg[ind_module2]) 
+										* ((float) SUBS.GetTotalLORExposure(axA,axB)*1000) / (float) r_frame;
+								// factor 1000 because exposure time is in seconds and everything else here is in ms.
+								// mean value of module rates of both crystals.
+
+								rtemp = rtemp / (1.0 * (float)num_lor_modpair);
 										// calculate mean num of rand of one LOR (current LOR):
-								if (unit_diff == 0) {	// unit_diff always zero, because commented out at around line 1514
+/*								if (unit_diff == 0) {	
 									rtemp = rtemp
 											/ (2.0 * (float) num_lor_modpair);	// multiply num_lor_modpair by 2, otherwise only half the possible crystal pairs between two blocks are considered
 								} else {
 									rtemp = rtemp / ((float) num_lor_modpair);
 								}
-
+*/
 								rtemp = rtemp * (39.0625 / t_window);	// Average num of randoms per tof bin
 
 // ================================ SCATTER CORRECTION (now implemented as separate executable AddScatter2add_fac) ==================================================								
@@ -1666,7 +1676,7 @@ int main(int argc, char **argv) {
 //								rtemp =  rtemp +  stemp;	// add scatters and randoms 
 //
 //	================================================================================================================================================================							
-								rtemp = rtemp * mtemp;		// apply dead time and decay correction to scatters and randoms
+							//	rtemp = rtemp * mtemp;		// apply dead time and decay correction to scatters and randoms
 
 								//rtemp = rtemp * (nc_crys[crys1] / nc_mod[modA]) * (nc_crys[crys2] / nc_mod[modB]);
 
