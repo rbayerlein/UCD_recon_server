@@ -1174,7 +1174,7 @@ int main(int argc, char **argv) {
 						random_rate_new[modA + 24 * unitA] += 1.0;
 						random_rate_new[modB + 24 * unitB] += 1.0;
 						sino_module_r_new[ind_module1] += 1.0;
-						sino_module_r_new[ind_module2] += +1.0;
+					//	sino_module_r_new[ind_module2] += +1.0;
 					} else { // bin to prompt related stuff
 						prompt_rate_new[modA + 24 * unitA] += 1.0;
 						prompt_rate_new[modB + 24 * unitB] += 1.0;
@@ -1564,8 +1564,8 @@ int main(int argc, char **argv) {
 						sino_module_r_new[ind_module1] =
 								sino_module_r_new[ind_module1] + 1.0;
 						//if (ind_module1 != ind_module2) {
-						sino_module_r_new[ind_module2] =
-								sino_module_r_new[ind_module2] + 1.0;
+						//sino_module_r_new[ind_module2] =
+						//		sino_module_r_new[ind_module2] + 1.0;
 						//}
 					} else {
 						prompt_rate_new[modA + 24 * unitA] =
@@ -1643,8 +1643,7 @@ int main(int argc, char **argv) {
 							//					/ (float) r_frame); // Mean number of randoms of each module pair for the whole recon frame length
 
 
-								rtemp 	= 0.5 * ((float) sino_module_r_avg[ind_module1] + (float) sino_module_r_avg[ind_module2]) 
-										* ((float) SUBS.GetTotalLORExposure(axA,axB)*1000) / (float) r_frame;
+								rtemp 	= (float) sino_module_r_avg[ind_module1] * ((float) SUBS.GetTotalLORExposure(axA,axB)*1000) / (float) r_frame;
 								// factor 1000 because exposure time is in seconds and everything else here is in ms.
 								// mean value of module rates of both crystals.
 
