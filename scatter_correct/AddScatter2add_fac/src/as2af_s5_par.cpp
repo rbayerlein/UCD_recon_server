@@ -203,7 +203,7 @@ int main(int argc, char **argv) {
 // set up block sino reverse lut
 	for (int i = 0; i < num_bins_sino_block; i++) {
 		blk_idx[plut[i].nv][plut[i].nu] = i;
-		blk_idx[plut[i].nu][plut[i].nv] = i;
+	//	blk_idx[plut[i].nu][plut[i].nv] = i;
 	}
 
 //here read in crys eff and plane eff instead of nc file.  
@@ -483,12 +483,22 @@ int AddScatter2add_fac(long long startPos, long long endPos, short threadID){
 			short axBiB = axCrysB / num_ax_crys_per_block;
 
 			// get transaxial sinogram index
-			int idx_tx_blk = blk_idx[txBiA][txBiB]; 
-			int ind_blk_sino = idx_tx_blk 
-			+ num_bins_sino_block * axBiA 
-			+ num_bins_sino_block * num_ax_block_ring * axBiB
-			+ num_bins_sino_block * num_ax_block_ring * num_ax_block_ring * (TOF_AB+13); 
+			int idx_tx_blk = blk_idx[txBiA][txBiB]; 		// transaxial sinogram index ,120×120
+			int idx_tx_blk_reverse = blk_idx[txBiB][txBiA]; // transaxial sinogram index ,120×120,reverse direction
+			int ind_blk_sino;
 
+			if (idx_tx_blk !=-1){
+				ind_blk_sino = idx_tx_blk 
+				+ num_bins_sino_block * axBiB 
+				+ num_bins_sino_block * num_ax_block_ring * axBiA
+				+ num_bins_sino_block * num_ax_block_ring * num_ax_block_ring * (TOF_AB+13); 
+			}else if(idx_tx_blk_reverse !=-1){
+				TOF_AB=-TOF_AB;
+				ind_blk_sino = idx_tx_blk 
+				+ num_bins_sino_block * axBiA
+				+ num_bins_sino_block * num_ax_block_ring * axBiB
+				+ num_bins_sino_block * num_ax_block_ring * num_ax_block_ring * (TOF_AB+13); 
+			}
 			// calculate correction factor for sinogram block
 			float stemp = (float)scatter_sino[ind_blk_sino] / N_TIME_BIN_PER_TOF;
 			
@@ -513,43 +523,38 @@ int AddScatter2add_fac(long long startPos, long long endPos, short threadID){
 
 //			stemp = stemp * (39.0625 / t_window);	// Average num of scatters per tof bin
 
-			float pure_stemp = stemp;				// save the pure stemp, which does not contain added randoms, save further down in "scat_fac[i]"
-
 			// add randoms (uncorrected for attenuation, etc!)
 			float rtemp = add_fac[i];				// read in randoms from ORIGINAL add_fac file NOT containing normalization, attenuation and dead time!
 			
-	//		stemp = stemp + rtemp;					// add scatters and randoms 
-			stemp = rtemp;							// remove this later FIXME !!
-
 			//divide by mul_fac (apply dead time and decay correction)
 			if(mul_fac[i] != 0){
-				stemp /= mul_fac[i];
-				pure_stemp /= mul_fac[i];
+				rtemp /= mul_fac[i];
+			//	stemp /= mul_fac[i];
 			}else{
+				rtemp = 0;
 				stemp = 0;
-				pure_stemp = 0;
 			}
 			
-			//divide stemp by crystal normalization i.e. multiply by UIH-defined correction factors
-			pure_stemp *= (nc_crys[axCrysA_w_gap + 679*txCrysA] * nc_crys[axCrysB_w_gap + 679*txCrysB]);
-			stemp *= (nc_crys[axCrysA_w_gap + 679*txCrysA] * nc_crys[axCrysB_w_gap + 679*txCrysB]);
+			//divide rtemp by crystal normalization i.e. multiply by UIH-defined correction factors
+		//	stemp *= (nc_crys[axCrysA_w_gap + 679*txCrysA] * nc_crys[axCrysB_w_gap + 679*txCrysB]);
+			rtemp *= (nc_crys[axCrysA_w_gap + 679*txCrysA] * nc_crys[axCrysB_w_gap + 679*txCrysB]);
 
-			//divide stemp by plane normalization i.e. multiply by UIH-defined correction factors
-			pure_stemp *= (nc_plane[axCrysA_w_gap + 679*axCrysB_w_gap]);
+			//divide rtemp by plane normalization i.e. multiply by UIH-defined correction factors
 			stemp *= (nc_plane[axCrysA_w_gap + 679*axCrysB_w_gap]);
+			rtemp *= (nc_plane[axCrysA_w_gap + 679*axCrysB_w_gap]);
 
-			//divide stemp by attn_fac
+			//divide rtemp by attn_fac
 			if (attn_fac[i] !=0){ // catch dividing by zero. Should theoretically never happen as that would correspond to infnite attenuation
+				rtemp /= attn_fac[i];
 				stemp /= attn_fac[i];
-				pure_stemp /= attn_fac[i];
 			}else{
+				rtemp = 0;
 				stemp = 0;
-				pure_stemp = 0;
 			}
 
-			scat_fac[i] = pure_stemp;	// write pure scatter correction factor to file
-	//		add_fac_out[i] = stemp;		// save scatters and randoms to the output add_fac variable
-			add_fac_out[i] = stemp + pure_stemp;	// revert this later FIXME !!
+			scat_fac[i] = stemp;	// write pure scatter correction factor to file
+	//		add_fac_out[i] = rtemp;		// save scatters and randoms to the output add_fac variable
+			add_fac_out[i] = rtemp + stemp;	// revert this later FIXME !!
 			
 
 			buffer_indx++;

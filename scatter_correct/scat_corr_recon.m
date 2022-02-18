@@ -35,6 +35,12 @@ blk_sino_dim = 5; % basically decides wheather to use non-tof (dim=4) or tof (di
 fprintf(fid_log, 'block sinogram dimension: %d\n', blk_sino_dim);
 fprintf('block sinogram dimension: %d\n', blk_sino_dim);
 
+use_lm_based_sinos=true;
+if use_lm_based_sinos
+    fprintf(fid_log, 'using list-mode based sinograms for scaling! Forcing sinogram dimension to be 5.\n');fprintf('using list-mode based sinograms for scaling. Forcing sinogram dimension to be 5.\n');
+    blk_sino_dim=5; % currently, the only way of using sino5d from list-mode files is in 5d. This could be changed later on. rbayerlein, 02/16/2022
+end
+
 currentFolder = pwd;
 fprintf(fid_log, 'directory of scatter correction script: \n%s\n', currentFolder); disp(currentFolder);
 
@@ -176,63 +182,83 @@ if scatter_data_exist
     
 % sum block sinograms from actual measurements!
     fprintf('summing block sinograms\n'); disp('Summing block sinograms...');
-    basename_exp = [" "," "];
+    basename_exp = [" "," "]; 
     basename_exp(1) = sprintf('%s/block_sino_f%d_randoms', handles.lm_outfolder, frame_num);
-    basename_exp(2) = sprintf('%s/block_sino_f%d_prompts', handles.lm_outfolder, frame_num);
-    img_size_sino4d = [91,60,112,112];
-    for f = 1:2
-        str = sprintf('Now summing:\n%s\n', basename_exp(f));
-        disp(str);
-        fprintf(fid_log, str);
-        fname_out = strcat(basename_exp(f),'.raw');
-        fid_tmp = fopen(fname_out, 'w');
+    basename_exp(2) = sprintf('%s/block_sino_f%d_prompts', handles.lm_outfolder, frame_num); 
+    if use_lm_based_sinos
+        fprintf(fid_log, 'running 5d sinogram creation from list-mode files\n'); fprintf('running 5d sinogram creation from list-mode files\n');
+        getSino5dFromLmFiles(handles.lm_outfolder, crys_eff, frame_num);
+    else
+        img_size_sino4d = [91,60,112,112]; %#ok<UNRCH>
+        for f = 1:2
+            str = sprintf('Now summing:\n%s\n', basename_exp(f));
+            disp(str);
+            fprintf(fid_log, str);
+            fname_out = strcat(basename_exp(f),'.raw');
+            fid_tmp = fopen(fname_out, 'w');
 
-        data_out = zeros(img_size_sino4d);
-        for i = 1:8
-            fprintf(fid_log, 'processing file %d\n', i); fprintf('processing file %d\n', i);
-            fname_in = strcat(basename_exp(f),sprintf('.%d.raw',i));
-            fid_in=fopen(fname_in);
-            data_in = fread(fid_in,'double');
-            data_in = reshape(data_in,img_size_sino4d);
-            data_out = data_out + data_in;
-            fclose(fid_in);
+            data_out = zeros(img_size_sino4d);
+            for i = 1:8
+                fprintf(fid_log, 'processing file %d\n', i); fprintf('processing file %d\n', i);
+                fname_in = strcat(basename_exp(f),sprintf('.%d.raw',i));
+                fid_in=fopen(fname_in);
+                data_in = fread(fid_in,'double');
+                data_in = reshape(data_in,img_size_sino4d);
+                data_out = data_out + data_in;
+                fclose(fid_in);
+            end
+            fwrite(fid_tmp, data_out,'double');
+            fclose(fid_tmp);
         end
-        fwrite(fid_tmp, data_out,'double');
-        fclose(fid_tmp);
+        disp('done');
     end
-    disp('done');
-
 
 % calculate prompt-delays
     fprintf(fid_log, 'getting prompt-delay sinogram file\n'); disp('Getting prompt-delay sinogram file');
-
-    basename_delay = [basename_exp{1}, '.raw'];
-    basename_prompt = [basename_exp{2}, '.raw'];
-    fname_pd = sprintf('%sblock_sino_f%d_pd.raw', basename_delay(1:strfind(basename_delay, 'block_sino_f')-1), frame_num);
+    if use_lm_based_sinos
+        basename_delay = [basename_exp{1}, '.sino5d'];
+        basename_prompt = [basename_exp{2}, '.sino5d'];
+        fname_pd = sprintf('%sblock_sino_f%d_pd.sino5d', basename_delay(1:strfind(basename_delay, 'block_sino_f')-1), frame_num);
+        data_type='uint16';
+    else
+        basename_delay = [basename_exp{1}, '.raw']; %#ok<UNRCH>
+        basename_prompt = [basename_exp{2}, '.raw'];
+        fname_pd = sprintf('%sblock_sino_f%d_pd.raw', basename_delay(1:strfind(basename_delay, 'block_sino_f')-1), frame_num);
+        data_type='double';
+    end
     
-    disp(basename_delay);
-    disp(basename_prompt);
-    disp(fname_pd);
+    fprintf(fid_log, 'basename_delay: %s\n', basename_delay);
+    fprintf(fid_log, 'basename_prompt: %s\n', basename_prompt);
+    fprintf(fid_log, 'fname_pd: %s\n', fname_pd);
+    fprintf('basename_delay: %s\n', basename_delay);
+    fprintf('basename_prompt: %s\n', basename_prompt);
+    fprintf('fname_pd: %s\n', fname_pd);
     
-    fid_p = fopen(basename_prompt, 'rb');
-    fid_d = fopen(basename_delay, 'rb');
-    data_prompt = fread(fid_p,'double');
-    data_delay = fread(fid_d,'double');
+    % only perform calculation if file does not exist yet:
+    if exist(fname_pd, 'file')
+        fprintf(fid_log, 'file exists. continue.\n');
+        fprintf('file exists. continue.\n');
+    else
+        fid_p = fopen(basename_prompt, 'rb');
+        fid_d = fopen(basename_delay, 'rb');
+        data_prompt = fread(fid_p,data_type);
+        data_delay = fread(fid_d,data_type);
 
-    data_pd = data_prompt - data_delay;
-    
-    % taking the zeros out (non-negativity constraint)
-    f=numel(find(data_pd<0)) / numel(data_pd);
-    fprintf(fid_log, 'fraction of zeros in the p-d sinogram: %d\n', f); fprintf('fraction of zeros in the p-d sinogram: %d\n', f);
-    data_pd(data_pd<0) = 0;
-        
-    fid_pd = fopen(fname_pd, 'w');
-    fwrite(fid_pd,data_pd,'double');
+        data_pd = data_prompt - data_delay;
 
-    fclose(fid_p);
-    fclose(fid_d);
-    fclose(fid_pd);
-    disp('done');
+        % taking the zeros out (non-negativity constraint)
+        f=numel(find(data_pd<0)) / numel(data_pd);
+        fprintf(fid_log, 'fraction of zeros in the p-d sinogram: %d\n', f); fprintf('fraction of zeros in the p-d sinogram: %d\n', f);
+        data_pd(data_pd<0) = 0;
+
+        fid_pd = fopen(fname_pd, 'w');
+        fwrite(fid_pd,data_pd,data_type);
+
+        fclose(fid_p);
+        fclose(fid_d);
+        fclose(fid_pd);
+        disp('done');
+    end
 
 % scale scatter sinograms
 % scaling sinograms
@@ -241,7 +267,11 @@ if scatter_data_exist
     if blk_sino_dim == 4
         fname_sino_scaled_tmp = sinogram_scaling(highest_iteration, fname_pd, simulation_basename);
     elseif blk_sino_dim == 5
-        fname_sino_scaled_tmp = sinogram_scaling_5d(highest_iteration, fname_pd, simulation_basename);
+        if use_lm_based_sinos
+            fname_sino_scaled_tmp = global_sinogram_scaling_5d(highest_iteration, fname_pd, simulation_basename);
+        else
+        fname_sino_scaled_tmp = sinogram_scaling_5d(highest_iteration, fname_pd, simulation_basename); %#ok<UNRCH>
+        end
     else
         fprintf(fid_log,'WRONG BLOCK SINOGRAM DIMENSION!');
         error('WRONG BLOCK SINOGRAM DIMENSION!');
@@ -266,8 +296,6 @@ if scatter_data_exist
     
 % create updated add_fac file
     fprintf(fid_log, 'creating updated add_fac file with scatter data\n'); disp('creating updated add_fac file with scatter data');
-    % "usage: " << argv[0] << " [lm_folder_name] " << " [scaled_sino] " << " [user_name] " << " [index_blockpairs_transaxial_2x91x60_int16] " << " [nc_file]"
-    nc_file = [handles.path_choose_server, handles.fname_choose_base, '1.nc'];
     lm_data_folder = [handles.server_recon_data_dir, '/', outfolder_server_temp];
     if blk_sino_dim == 4
         cmd_as2af = sprintf('%s %s %s %s %s %s %s %d', AddScatter2AddFac, lm_data_folder, fname_sino_scaled, user, fname_lut, crys_eff, plane_eff, frame_num);
@@ -764,45 +792,57 @@ for iter = 1 : handles.osem_iter
     basename_exp = [" "," "];
     basename_exp(1) = sprintf('%s/block_sino_f%d_randoms', handles.lm_outfolder, frame_num);
     basename_exp(2) = sprintf('%s/block_sino_f%d_prompts', handles.lm_outfolder, frame_num);
-    img_size_sino4d = [91,60,112,112];
-    for f = 1:2
-        str = sprintf('Now summing:\n%s\n', basename_exp(f));
-        disp(str);
-        fprintf(fid_log, str);
-        fname_out = strcat(basename_exp(f),'.raw');
-        
-        % only perform summing if file does not exist yet:
-        if exist(fname_out, 'file')
-            fprintf('file exists. continue.');
-            fprintf(fid_log, 'file exists. continue.\n');
-            continue;
-        end
-        
-        fid_tmp = fopen(fname_out, 'w');
+    if use_lm_based_sinos
+        fprintf(fid_log, 'running 5d sinogram creation from list-mode files\n'); fprintf('running 5d sinogram creation from list-mode files\n');
+        getSino5dFromLmFiles(handles.lm_outfolder, crys_eff, frame_num);
+    else
+        img_size_sino4d = [91,60,112,112]; %#ok<UNRCH>
+        for f = 1:2
+            str = sprintf('Now summing:\n%s\n', basename_exp(f));
+            disp(str);
+            fprintf(fid_log, str);
+            fname_out = strcat(basename_exp(f),'.raw');
 
-        data_out = zeros(img_size_sino4d);
-        for i = 1:8
-            fprintf(fid_log, 'processing file %d\n', i); fprintf('processing file %d\n', i);
-            fname_in = strcat(basename_exp(f),sprintf('.%d.raw',i));
-            fid_in=fopen(fname_in);
-            data_in = fread(fid_in,'double');
-            data_in = reshape(data_in,img_size_sino4d);
-            data_out = data_out + data_in;
-            fclose(fid_in);
+            % only perform summing if file does not exist yet:
+            if exist(fname_out, 'file')
+                fprintf('file exists. continue.');
+                fprintf(fid_log, 'file exists. continue.\n');
+                continue;
+            end
+
+            fid_tmp = fopen(fname_out, 'w');
+
+            data_out = zeros(img_size_sino4d);
+            for i = 1:8
+                fprintf(fid_log, 'processing file %d\n', i); fprintf('processing file %d\n', i);
+                fname_in = strcat(basename_exp(f),sprintf('.%d.raw',i));
+                fid_in=fopen(fname_in);
+                data_in = fread(fid_in,'double');
+                data_in = reshape(data_in,img_size_sino4d);
+                data_out = data_out + data_in;
+                fclose(fid_in);
+            end
+            fwrite(fid_tmp, data_out,'double');
+            fclose(fid_tmp);
         end
-        fwrite(fid_tmp, data_out,'double');
-        fclose(fid_tmp);
     end
     disp('done');
 
   
-% get prompts minus delayed
+% calculate prompt-delays
     fprintf(fid_log, 'getting prompt-delay sinogram file\n'); disp('Getting prompt-delay sinogram file');
-
-    basename_delay = [basename_exp{1}, '.raw'];
-    basename_prompt = [basename_exp{2}, '.raw'];
-    fname_pd = sprintf('%sblock_sino_f%d_pd.raw', basename_delay(1:strfind(basename_delay, 'block_sino_f')-1), frame_num);
-
+    if use_lm_based_sinos
+        basename_delay = [basename_exp{1}, '.sino5d'];
+        basename_prompt = [basename_exp{2}, '.sino5d'];
+        fname_pd = sprintf('%sblock_sino_f%d_pd.sino5d', basename_delay(1:strfind(basename_delay, 'block_sino_f')-1), frame_num);
+        data_type='uint16';
+    else
+        basename_delay = [basename_exp{1}, '.raw']; %#ok<UNRCH>
+        basename_prompt = [basename_exp{2}, '.raw'];
+        fname_pd = sprintf('%sblock_sino_f%d_pd.raw', basename_delay(1:strfind(basename_delay, 'block_sino_f')-1), frame_num);
+        data_type='double';
+    end
+    
     fprintf(fid_log, 'basename_delay: %s\n', basename_delay);
     fprintf(fid_log, 'basename_prompt: %s\n', basename_prompt);
     fprintf(fid_log, 'fname_pd: %s\n', fname_pd);
@@ -817,18 +857,18 @@ for iter = 1 : handles.osem_iter
     else
         fid_p = fopen(basename_prompt, 'rb');
         fid_d = fopen(basename_delay, 'rb');
-        data_prompt = fread(fid_p,'double');
-        data_delay = fread(fid_d,'double');
+        data_prompt = fread(fid_p,data_type);
+        data_delay = fread(fid_d,data_type);
 
         data_pd = data_prompt - data_delay;
-        
+
         % taking the zeros out (non-negativity constraint)
         f=numel(find(data_pd<0)) / numel(data_pd);
         fprintf(fid_log, 'fraction of zeros in the p-d sinogram: %d\n', f); fprintf('fraction of zeros in the p-d sinogram: %d\n', f);
         data_pd(data_pd<0) = 0;
-        
+
         fid_pd = fopen(fname_pd, 'w');
-        fwrite(fid_pd,data_pd,'double');
+        fwrite(fid_pd,data_pd,data_type);
 
         fclose(fid_p);
         fclose(fid_d);
@@ -843,7 +883,11 @@ for iter = 1 : handles.osem_iter
     if blk_sino_dim == 4
         fname_sino_scaled_tmp = sinogram_scaling(iter, fname_pd, simulation_basename);
     elseif blk_sino_dim == 5
-        fname_sino_scaled_tmp = sinogram_scaling_5d(iter, fname_pd, simulation_basename);
+        if use_lm_based_sinos
+            fname_sino_scaled_tmp = global_sinogram_scaling_5d(iter, fname_pd, simulation_basename);
+        else
+            fname_sino_scaled_tmp = sinogram_scaling_5d(iter, fname_pd, simulation_basename); %#ok<UNRCH>
+        end
     else
         fprintf(fid_log,'WRONG BLOCK SINOGRAM DIMENSION!');
         error('WRONG BLOCK SINOGRAM DIMENSION!');
