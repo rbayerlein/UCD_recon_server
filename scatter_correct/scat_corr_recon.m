@@ -59,7 +59,7 @@ fprintf(fid_log, 'frame number: %d\n', frame_num);
 % u-map
 dir_ctac = handles.AC_path_server;
 fprintf(fid_log, 'sens image folder path: %s\n', dir_ctac);
-tx_fov = 500; % mm
+tx_fov = 650; % mm
 
 % a-map
 outfolder_server_temp = handles.server_temp_dir{frame_num+1};
@@ -100,6 +100,9 @@ min_num_to_simulate = 1e+8;     %100 mio
 % detector normalization files
 crys_eff = [handles.dcm_dir_init_ucd_server, '/crys_eff_679x840'];
 plane_eff = [handles.dcm_dir_init_ucd_server, '/plane_eff_679x679'];
+plane_eff_SimSET = [install_dir, 'simset/data_processing/simset_cry_plane_eff/planeff_simsetsimu_679x679_reciprocal_float_transpose_w_o_geo.raw'];
+% reciprocal means its defined the same way UIH plane efficiencies for
+% measured data.
 
 %% check if scatter correction data already exist
 dir_scatter_data = [handles.study_dir_server, 'UCD/Scatter_Data'];
@@ -187,7 +190,10 @@ if scatter_data_exist
     basename_exp(2) = sprintf('%s/block_sino_f%d_prompts', handles.lm_outfolder, frame_num); 
     if use_lm_based_sinos
         fprintf(fid_log, 'running 5d sinogram creation from list-mode files\n'); fprintf('running 5d sinogram creation from list-mode files\n');
-        getSino5dFromLmFiles(handles.lm_outfolder, crys_eff, frame_num);
+        getSino5dFromLmFiles(sprintf('%s/%s', handles.server_recon_data_dir, outfolder_server_temp), crys_eff, plane_eff, frame_num, handles.lm_outfolder);
+        % syntax: 1) folder with all lm files (the one with the weird name,
+        % 2) crys eff, 3) plane_eff, % 4) frame num
+        % 5) lm folder where sinograms are located (the one with the normal name)
     else
         img_size_sino4d = [91,60,112,112]; %#ok<UNRCH>
         for f = 1:2
@@ -301,7 +307,7 @@ if scatter_data_exist
         cmd_as2af = sprintf('%s %s %s %s %s %s %s %d', AddScatter2AddFac, lm_data_folder, fname_sino_scaled, user, fname_lut, crys_eff, plane_eff, frame_num);
     elseif blk_sino_dim == 5
     %    cmd_as2af = sprintf('%s %s %s %s %s %s %s %d', AddScatter2AddFac_5d, lm_data_folder, fname_sino_scaled, user, fname_lut, crys_eff, plane_eff, frame_num);
-        cmd_as2af = sprintf('%s %s %s %s %s %s %d', as2af_s5_par, lm_data_folder, fname_sino_scaled, fname_lut, crys_eff, plane_eff, frame_num);
+        cmd_as2af = sprintf('%s %s %s %s %s %s %s %d', as2af_s5_par, lm_data_folder, fname_sino_scaled, fname_lut, crys_eff, plane_eff, plane_eff_SimSET, frame_num);
     else
         fprintf(fid_log,'WRONG BLOCK SINOGRAM DIMENSION!');
         error('WRONG BLOCK SINOGRAM DIMENSION!');
@@ -509,6 +515,11 @@ for iter = 1 : handles.osem_iter
     % a-map for this run
     dir_amaps_in = [dir_amaps_general, num2str(iter)];
     fprintf(fid_log, '%s\n', dir_amaps_in); disp(dir_amaps_in);
+
+    % filter extreme values caused by PSF (will not change image in case
+    % PSF was on, but only for PSF OFF)
+    fprintf(fid_log, 'running image filter to catch extreme values caused by PSF being switched off\n'); fprintf('running image filter to catch extreme values caused by PSF being switched off\n');
+    PSF_Image_Filter(dir_amaps_in, img_size); % located in the same directory as this script
     
     % simualation start
     system('echo $(date): Simset Simulation Script...');
@@ -753,7 +764,7 @@ for iter = 1 : handles.osem_iter
     if blk_sino_dim ==4
         cmd = sprintf('%s f%d.%d_trues.lm f%d.%d_trues.sino4d %s', bin_lm2blocksino, iter, iter, iter, iter, fname_lut);
     elseif blk_sino_dim ==5
-        cmd = sprintf('%s f%d.%d_trues.lm f%d.%d_trues.sino5d %s', bin_lm2blocksino_5d, iter, iter, iter, iter, fname_lut);
+        cmd = sprintf('%s f%d.%d_trues.lm f%d.%d_trues.sino5d %s %s', bin_lm2blocksino_5d, iter, iter, iter, iter, fname_lut, plane_eff_SimSET);
     else
         fprintf(fid_log,'WRONG BLOCK SINOGRAM DIMENSION!');
         error('WRONG BLOCK SINOGRAM DIMENSION!');
@@ -766,7 +777,7 @@ for iter = 1 : handles.osem_iter
     if blk_sino_dim ==4
         cmd = sprintf('%s f%d.%d_scatters.lm f%d.%d_scatters.sino4d %s', bin_lm2blocksino, iter, iter, iter, iter, fname_lut);
     elseif blk_sino_dim ==5
-        cmd = sprintf('%s f%d.%d_scatters.lm f%d.%d_scatters.sino5d %s', bin_lm2blocksino_5d, iter, iter, iter, iter, fname_lut);
+        cmd = sprintf('%s f%d.%d_scatters.lm f%d.%d_scatters.sino5d %s %s', bin_lm2blocksino_5d, iter, iter, iter, iter, fname_lut, plane_eff_SimSET);
     else
         fprintf(fid_log,'WRONG BLOCK SINOGRAM DIMENSION!');
         error('WRONG BLOCK SINOGRAM DIMENSION!');
@@ -794,7 +805,11 @@ for iter = 1 : handles.osem_iter
     basename_exp(2) = sprintf('%s/block_sino_f%d_prompts', handles.lm_outfolder, frame_num);
     if use_lm_based_sinos
         fprintf(fid_log, 'running 5d sinogram creation from list-mode files\n'); fprintf('running 5d sinogram creation from list-mode files\n');
-        getSino5dFromLmFiles(handles.lm_outfolder, crys_eff, frame_num);
+        cd(sprintf('%s', currentFolder));
+        getSino5dFromLmFiles(sprintf('%s/%s', handles.server_recon_data_dir, outfolder_server_temp), crys_eff, plane_eff, frame_num, handles.lm_outfolder);
+        % syntax: 1) folder with all lm files (the one with the weird name,
+        % 2) crys eff, 3) plane_eff, % 4) frame num
+        % 5) lm folder where sinograms are located (the one with the normal name)
     else
         img_size_sino4d = [91,60,112,112]; %#ok<UNRCH>
         for f = 1:2
@@ -917,7 +932,7 @@ for iter = 1 : handles.osem_iter
         cmd_as2af = sprintf('%s %s %s %s %s %s %s %d', AddScatter2AddFac, lm_data_folder, fname_sino_scaled, user, fname_lut, crys_eff, plane_eff, frame_num);
     elseif blk_sino_dim == 5
      %   cmd_as2af = sprintf('%s %s %s %s %s %s %s %d', AddScatter2AddFac_5d, lm_data_folder, fname_sino_scaled, user, fname_lut, crys_eff, plane_eff, frame_num);
-        cmd_as2af = sprintf('%s %s %s %s %s %s %d', as2af_s5_par, lm_data_folder, fname_sino_scaled, fname_lut, crys_eff, plane_eff, frame_num);
+        cmd_as2af = sprintf('%s %s %s %s %s %s %s %d', as2af_s5_par, lm_data_folder, fname_sino_scaled, fname_lut, crys_eff, plane_eff, plane_eff_SimSET, frame_num);
     else
         fprintf(fid_log,'WRONG BLOCK SINOGRAM DIMENSION!');
         error('WRONG BLOCK SINOGRAM DIMENSION!');

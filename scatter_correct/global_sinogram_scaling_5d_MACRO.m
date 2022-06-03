@@ -1,6 +1,12 @@
+% macro script that does the same as the function
+% global_sinogram_scalind_5d.m, but it allows to run individual sections
+% after the first execution. Parameters and output values are saved in the
+% workspace
 
-function [fname_s_scaled] = global_sinogram_scaling_5d(iteration_num, fname_pd, simulation_basename)
 %% user-configurable paramters
+iteration_num=3;
+fname_pd = '/home/rbayerlein/ssd/HumSubj_NA_SC_360s_4it/block_sino_f0_pd.sino5d';
+simulation_basename = '/home/rbayerlein/data/explorer/20210714/NERVO_ATILLIO_7696939_144717_Raw/UCD/Scatter_Data_bigger_data_set_20220404/f3.3';
 
 TOFbyTOF_scaling=false; 
 % determines whether to use global scaling; true: no global scaling but tof bin by tof bin. 
@@ -94,12 +100,49 @@ if TOFbyTOF_scaling
         sino_s_scaled_5d(:,:,:,:,tofbin) = data_s_5d(:,:,:,:,tofbin) * x_optimal(tofbin,1);
     end
 else
-    sino_s_scaled_5d = data_s_5d * x_optimal; %#ok<UNRCH>
+    sino_s_scaled_5d = data_s_5d * x_optimal; 
     fprintf('global scaling factor: %d\n', x_optimal);
 end
 delete(gcp('nocreate'))
 
+%% preparation of plotting: Summing up tof bins
+axAi = 17; %70; %30; % 39
+axBi = 17;
+angle = 12;
+graph_pd = zeros( img_size_sino_5d(1),1);
+graph_t = zeros( img_size_sino_5d(1),1);
+graph_s = zeros( img_size_sino_5d(1),1);
+
+for tt =12:12
+    for z=0:0
+        graph_pd = graph_pd+data_pd(:,angle,axAi+z,axBi+z, tt);
+        if TOFbyTOF_scaling
+            graph_t = graph_t+data_t_5d(:,angle,axAi+z,axBi+z, tt) *x_optimal(tt,1);
+        else
+            graph_t = graph_t+data_t_5d(:,angle,axAi+z,axBi+z, tt) *x_optimal;
+        end
+    %     graph_s = graph_s+data_s_5d(:,10,axAi,axBi, tt) *x_optimal(tt,1);
+        graph_s = graph_s+sino_s_scaled_5d(:,angle,axAi+z,axBi+z, tt);
+
+    end
+end
+%graph_s(graph_s>1.1*graph_pd) = graph_pd(graph_s>1.1*graph_pd);
+
+
 %% plotting
+figure;
+plot(graph_pd, '-b'); hold on;
+plot(graph_t+graph_s, '--b');
+plot(graph_pd-graph_s, '-r');
+% plot(graph_t, '--r');
+plot(graph_s, '-k');
+ylabel('Counts'); xlabel('Bin number');
+% legend('Experimental (P-D)','Simulation (T+S)','P-D-S','Simulation (T)','Simulation (S)');
+% legend('uncorrected', 'corrected', 'scatters');
+legend('uncorrected (P-D)', 'scaled T+S', 'corrected (P-D-S)', 'scatter');
+set(gca,'FontSize',11,'FontWeight','bold');
+
+figure;
 fprintf('plotting results...');
 plot(data_pd(:,1,axAi,axBi, tof),'-b'); hold on;
 if TOFbyTOF_scaling
@@ -113,6 +156,7 @@ if TOFbyTOF_scaling
 else
     plot(data_t_5d(:,1,axAi,axBi, tof)*x_optimal,'--r');
 end
+
 plot(sino_s_scaled_5d(:,1,axAi,axBi, tof),'-k');
 ylabel('Counts'); xlabel('Bin number');
 legend('Experimental (P-D)','Simulation (T+S)','P-D-S','Simulation (T)','Simulation (S)');
@@ -124,9 +168,9 @@ set(gca,'FontSize',11,'FontWeight','bold');
 [FILEPATH,NAME,EXT] = fileparts(fname_s);
 fname_s_scaled = strcat(FILEPATH,'/',basename_scaled,'_scaled',EXT);
 fname_scale_factor = strcat(FILEPATH,'/',NAME,'.scale_fac');
-fprintf('Writing\t%s...\nand \t\t%s',fname_s_scaled, fname_scale_factor);
-fwrite(fopen(fname_s_scaled,'w'),sino_s_scaled_5d, 'single');   % use single instead of double to limit file size.
-fwrite(fopen(fname_scale_factor,'w'),x_optimal,'double');
+fprintf('Writing\t%s...\nand \t\t%s\n',fname_s_scaled, fname_scale_factor);
+% fwrite(fopen(fname_s_scaled,'w'),sino_s_scaled_5d, 'single');   % use single instead of double to limit file size.
+% fwrite(fopen(fname_scale_factor,'w'),x_optimal,'double');
 
 
 %% cleaning up
@@ -134,4 +178,3 @@ fclose(fid_pd);
 fclose(fid_t);
 fclose(fid_s);
 
-end

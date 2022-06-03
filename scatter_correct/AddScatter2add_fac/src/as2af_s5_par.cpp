@@ -39,6 +39,7 @@ int num_crystals_all = 570360; // 679*840
 
 vector<float> nc_crys(num_crystals_all); 
 vector<float> nc_plane(num_plane_efficiencies);
+vector<float> nc_plane_SimSET(num_plane_efficiencies);
 
 vector<float> scatter_sino(num_bins_sino_block * num_ax_block_ring * num_ax_block_ring * N_TOF);
 
@@ -75,8 +76,8 @@ int main(int argc, char **argv) {
 
 	
 
-	if (argc != 7 ) {
-		cout << "usage: " << argv[0] << " [lm_folder_name]  [scaled_sino]  [index_blockpairs_transaxial_2x91x60_int16]  [crys_eff]  [plane_eff]  [frame_number]" << endl;
+	if (argc != 8 ) {
+		cout << "usage: " << argv[0] << " [lm_folder_name]  [scaled_sino]  [index_blockpairs_transaxial_2x91x60_int16]  [crys_eff]  [plane_eff]  [plane_eff_SimSET]  [frame_number]" << endl;
 		cerr << "not enough input parameters" << endl;
 		exit(1);
 	}
@@ -90,7 +91,7 @@ int main(int argc, char **argv) {
 	infile_fullpath = argv[1];
 	cout << "-> opening list-mode files from folder " << infile_fullpath << endl;
 
-	frame_number = atoi(argv[6]);
+	frame_number = atoi(argv[7]);
 	stringstream ss_fn;
 	ss_fn << "/lm_reorder_f" << frame_number << "_prompts";
 	string lm_file_name_raw = ss_fn.str();
@@ -219,6 +220,12 @@ int main(int argc, char **argv) {
 	ifstream plane_read;
 	plane_read.open(plane_fullpath.c_str(), ios::in | ios::binary);
 
+	cout <<"-> getting SimSET plane efficiencies from file: " << endl;
+	string plane_SimSET_fullpath = argv[6];
+	cout << "\t" << plane_SimSET_fullpath << endl;
+	ifstream plane_SimSET_read;
+	plane_SimSET_read.open(plane_SimSET_fullpath.c_str(), ios::in | ios::binary);
+
 	bool use_plane_default = false;
 	if (!plane_read) {
 		cout << "Could not open plane efficiencies file, use default values (1) \n";
@@ -234,6 +241,15 @@ int main(int argc, char **argv) {
 		use_crys_default = true;
 		for (int nci = 0; nci < num_crystals_all; ++nci) {
 			nc_crys[nci] = 1.0;
+		}
+	}
+
+	bool use_plane_SimSET_default = false;
+	if (!plane_SimSET_read) {
+		cout << "Could not open plane efficiencies file, use default values (1) \n";
+		use_plane_SimSET_default = true;
+		for (int nci = 0; nci < num_plane_efficiencies; ++nci) {
+			nc_plane_SimSET[nci] = 1.0;
 		}
 	}
 
@@ -254,7 +270,14 @@ int main(int argc, char **argv) {
 		crys_read.close();
 	}
 
-
+	if (!use_plane_SimSET_default) {
+		// get plane efficiencies
+	//	nc_read.seekg( 2079453 * 4, nc_read.beg);
+		for (int p = 0;  p < num_plane_efficiencies; ++p) {
+			plane_SimSET_read.read(reinterpret_cast<char*>(&nc_plane_SimSET[p]), sizeof(float));
+		}
+		plane_SimSET_read.close();
+	}
 
 
 // get number of events per thread
@@ -489,8 +512,8 @@ int AddScatter2add_fac(long long startPos, long long endPos, short threadID){
 
 			if (idx_tx_blk !=-1){
 				ind_blk_sino = idx_tx_blk 
-				+ num_bins_sino_block * axBiB 
-				+ num_bins_sino_block * num_ax_block_ring * axBiA
+				+ num_bins_sino_block * axBiA 
+				+ num_bins_sino_block * num_ax_block_ring * axBiB
 				+ num_bins_sino_block * num_ax_block_ring * num_ax_block_ring * (TOF_AB+13); 
 			}else if(idx_tx_blk_reverse !=-1){
 				TOF_AB=-TOF_AB;
@@ -540,7 +563,7 @@ int AddScatter2add_fac(long long startPos, long long endPos, short threadID){
 			rtemp *= (nc_crys[axCrysA_w_gap + 679*txCrysA] * nc_crys[axCrysB_w_gap + 679*txCrysB]);
 
 			//divide rtemp by plane normalization i.e. multiply by UIH-defined correction factors
-			stemp *= (nc_plane[axCrysA_w_gap + 679*axCrysB_w_gap]);
+			stemp *= (nc_plane_SimSET[axCrysA_w_gap + 679*axCrysB_w_gap]);
 			rtemp *= (nc_plane[axCrysA_w_gap + 679*axCrysB_w_gap]);
 
 			//divide rtemp by attn_fac

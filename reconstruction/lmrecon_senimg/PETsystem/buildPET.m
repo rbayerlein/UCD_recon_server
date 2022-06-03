@@ -51,19 +51,43 @@ switch lower(name)
             number_of_detector_modules_axial = 1;
             detector_modula_axial_extra_offsets = [0.0];
         else
-            crystal_array_size = [3 1];
+            crystal_array_size = [1 8];
             number_of_detector_modules_axial = 1;
             detector_modula_axial_extra_offsets = [0.0 0.0];
         end
 
-        number_of_detector_modules_transaxial = 8;
+        number_of_detector_modules_transaxial = 24;
         number_of_DOI_bins = 1;
         detector_module_initial_angle_offset = 0.0;
         
-        number_of_projections_per_angle = 19; % total # tx crystals (24) - 1 should be the maximum possible number of interleaved radial bins
+        number_of_projections_per_angle = 21; % total # tx crystals (24) - 1 should be the maximum possible number of interleaved radial bins
 
         tof_info = [500, 25];
 
+    case 'reimund_test'
+        name_tag = 'reimund test for blk bin validation';
+
+        ring_diameter = 786.0; % unit in mm
+        crystal_size = [19.95, 19.95, 34.2, 18.1]; % tf-tr-a-d (unit in mm)
+        crystal_gap_size = [0.09, 0.09, 0.09]; % tf-tr-a (unit in mm)
+        
+        if single_ring_only
+            crystal_array_size = [1 1];
+            number_of_detector_modules_axial = 1;
+            detector_modula_axial_extra_offsets = [0.0];
+        else
+            crystal_array_size = [5 112]; %           original crystal_array_size = [5 56];
+            number_of_detector_modules_axial = 1;
+            detector_modula_axial_extra_offsets = [0.0 0.0];
+        end
+
+        number_of_detector_modules_transaxial = 24;        
+        number_of_projections_per_angle = 77;  %2n-1 radial bin
+        tof_info = [505, 39.06];
+        number_of_DOI_bins = 1;
+        detector_module_initial_angle_offset = 0.0;
+        
+        
     otherwise
         error('unknown scanner! micropet2, toshiba, inveon, ucdpetmr, explorer, explorer2000mm, explorer2000mm_v3_4brscanner');
         
