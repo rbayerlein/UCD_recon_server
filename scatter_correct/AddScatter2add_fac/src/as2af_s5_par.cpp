@@ -517,7 +517,7 @@ int AddScatter2add_fac(long long startPos, long long endPos, short threadID){
 				+ num_bins_sino_block * num_ax_block_ring * num_ax_block_ring * (TOF_AB+13); 
 			}else if(idx_tx_blk_reverse !=-1){
 				TOF_AB=-TOF_AB;
-				ind_blk_sino = idx_tx_blk 
+				ind_blk_sino = idx_tx_blk_reverse
 				+ num_bins_sino_block * axBiA
 				+ num_bins_sino_block * num_ax_block_ring * axBiB
 				+ num_bins_sino_block * num_ax_block_ring * num_ax_block_ring * (TOF_AB+13); 
@@ -555,7 +555,7 @@ int AddScatter2add_fac(long long startPos, long long endPos, short threadID){
 			//	stemp /= mul_fac[i];
 			}else{
 				rtemp = 0;
-				stemp = 0;
+			//	stemp = 0;
 			}
 			
 			//divide rtemp by crystal normalization i.e. multiply by UIH-defined correction factors
