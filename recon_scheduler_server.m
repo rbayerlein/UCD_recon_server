@@ -10,6 +10,8 @@ pause(0.1);
 
 lm_counter = 1; 
 
+wipe_directories = true; % delete temp folder and clean up lm directory
+
 subsample_on = handles.subsample; 
 
 if subsample_on
@@ -165,16 +167,22 @@ while not_done
 
         cmd_combine = [handles.recon_path_server,cmd_combine,'\n\n']; 
         fprintf(fid, cmd_combine);
-% === can be deleted from here
+
         for lmk = 1:8
           str_delete_lm = ['rm ', handles.server_recon_data_dir,'/',outfolder_server_temp, '/lm_reorder_f',num2str(m),'_prompts.',num2str(lmk),'.lm\n\n']; 
         %  fprintf(fid,str_delete_lm); 
-          str_delete_mul_fac = ['rm ', handles.server_recon_data_dir,'/',outfolder_server_temp, '/lm_reorder_f',num2str(m),'_prompts.',num2str(lmk),'.mul_fac\n\n'];
-        %  fprintf(fid,str_delete_mul_fac); 
+          str_delete_mul_fac_original = ['rm ', handles.server_recon_data_dir,'/',outfolder_server_temp, '/lm_reorder_f',num2str(m),'_prompts.',num2str(lmk),'.mul_fac.original\n\n'];
+        %  fprintf(fid,str_delete_mul_fac_original); 
           str_delete_add_fac = ['rm ', handles.server_recon_data_dir,'/',outfolder_server_temp, '/lm_reorder_f',num2str(m),'_prompts.',num2str(lmk),'.add_fac\n\n'];
         %  fprintf(fid, str_delete_add_fac); 
+          str_delete_add_fac_original = ['rm ', handles.server_recon_data_dir,'/',outfolder_server_temp, '/lm_reorder_f',num2str(m),'_prompts.',num2str(lmk),'.add_fac.original\n\n'];
+        %  fprintf(fid, str_delete_add_fac_original);
+          str_delete_attn_fac = ['rm ', handles.server_recon_data_dir,'/',outfolder_server_temp, '/lm_reorder_f',num2str(m),'_prompts.',num2str(lmk),'.attn_fac\n\n'];
+        %  fprintf(fid, str_delete_attn_fac); 
+          str_delete_checkfile = ['rm ', handles.server_recon_data_dir,'/',outfolder_server_temp, '/lm_reorder_f',num2str(m),'_prompts.',num2str(lmk),'.checkfile\n\n'];
+        %  fprintf(fid, str_delete_checkfile); 
         end
-% ==== to here
+
         str = ['export OMP_NUM_THREADS=',num2str(handles.num_threads_server),'\n\n'];
       
         fprintf(fid,str);
@@ -189,6 +197,8 @@ while not_done
 
         fclose(fid);
 
+        fprintf(fid_log, 'now creating run_lmrecon_explorer_fX-script (X=frame number), which does the following:\n1) executing combine_listmode\n2) deleting individual lm files\n3) executing recon commands\n');
+        fprintf('now creating run_lmrecon_explorer_fX-script (X=frame number), which does the following:\n1) executing combine_listmode\n2) deleting individual lm files\n3) executing recon commands\n');
         ssss = ['chmod +x ', toRun_sh]; 
         system(ssss); 
         pause(0.1);
@@ -197,17 +207,20 @@ while not_done
         
         % move the data to recon server 
       fprintf(fid_log, 'moving data to recon server directory %s\n', outfolder_server_temp); fprintf('moving data to recon server directory %s\n', outfolder_server_temp);
-  	  cmd_mvdata = ['cp -r ', '"',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.1.lm" "',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.1.mul_fac" "',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.1.add_fac" "',...
+  	  cmd_mvdata = ['mv ', '"',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.1.lm" "',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.1.mul_fac" "',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.1.add_fac" "',...
   		handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.2.lm" "',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.2.mul_fac" "',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.2.add_fac" "',...
   		handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.3.lm" "',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.3.mul_fac" "',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.3.add_fac" "',...
   		handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.4.lm" "',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.4.mul_fac" "',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.4.add_fac" "',...
   		handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.5.lm" "',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.5.mul_fac" "',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.5.add_fac" "',...
   		handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.6.lm" "',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.6.mul_fac" "',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.6.add_fac" "',...
   		handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.7.lm" "',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.7.mul_fac" "',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.7.add_fac" "',...
-  		handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.8.lm" "',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.8.mul_fac" "',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.8.add_fac" "',...
-  		handles.sensitivity_path_server_backup,'" "', toRun_sh,'" "', handles.lm_outfolder,'lmacc_scanner_parameter_f',num2str(m),'.cfg" ', handles.server_recon_data_dir, '/',outfolder_server_temp,'/ '];  
-  	  system(cmd_mvdata); 
-  	  pause(0.1);
+  		handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.8.lm" "',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.8.mul_fac" "',handles.lm_outfolder,'lm_reorder_f',num2str(m),'_prompts.8.add_fac" ',...
+      handles.server_recon_data_dir, '/',outfolder_server_temp,'/ '];  
+      cmd_cpdata = ['cp -r ', '"', toRun_sh,'" "', handles.sensitivity_path_server_backup,'" "', handles.lm_outfolder,'lmacc_scanner_parameter_f',num2str(m),'.cfg" ', handles.server_recon_data_dir, '/',outfolder_server_temp,'/ '];
+      system(cmd_mvdata); 
+      pause(0.1);
+      system(cmd_cpdata);
+      pause(0.1);
 
       % get path to script to generate attenuation factors
       attn_path_name = [handles.install_dir_server, '/read_lm/generate_lm_attn_fp_exp'];
@@ -297,44 +310,49 @@ while not_done
           fprintf('cleaning up the lm_outfolder %s\n', handles.lm_outfolder);
 
           % wipe lm_outfolder
-          cmd_rm = ['rm ', handles.lm_outfolder, 'block_sino_f', num2str(handles.reconFrames(kk)),'_prompts.* ',...
-          handles.lm_outfolder, 'block_sino_f', num2str(handles.reconFrames(kk)), '_randoms.* ',...
-          handles.lm_outfolder, 'deadtime_sino.* ',...
-          handles.lm_outfolder, 'lm_reorder_f', num2str(handles.reconFrames(kk)), '_prompts.* ',...
-          handles.lm_outfolder, 'prompts* '...
-          handles.lm_outfolder, 'randoms* '...
-          handles.lm_outfolder, 'singles* '];
-          fprintf(fid_log, '%s\n', cmd_rm); fprintf(cmd_rm);
-          system(cmd_rm);
-          pause(0.1);
-
-          %copy lm and add fac files from temp dir to lm_outfolder
-          cmd_mv = ['cp ', handles.server_recon_data_dir, '/', handles.server_temp_dir{kk}, '/*prompts.add_fac ', handles.lm_outfolder ];
-          cmd_mv2 = ['cp ', handles.server_recon_data_dir, '/', handles.server_temp_dir{kk}, '/*prompts.add_fac.original ', handles.lm_outfolder ];
-          cmd_mv3 = ['cp ', handles.server_recon_data_dir, '/', handles.server_temp_dir{kk}, '/*prompts.mul_fac ', handles.lm_outfolder ];
-          cmd_mv4 = ['cp ', handles.server_recon_data_dir, '/', handles.server_temp_dir{kk}, '/*prompts.lm ', handles.lm_outfolder ];
-          cmd_mv5 = ['cp ', handles.server_recon_data_dir, '/', handles.server_temp_dir{kk}, '/*prompts.scat_fac ', handles.lm_outfolder ];
-          cmd_mv6 = ['cp ', handles.server_recon_data_dir, '/', handles.server_temp_dir{kk}, '/*prompts.attn_fac ', handles.lm_outfolder ];
-          cmd_mv7 = ['cp ', handles.server_recon_data_dir, '/', handles.server_temp_dir{kk}, '/*prompts.mul_fac.original ', handles.lm_outfolder ];
-          fprintf(fid_log, 'copying lm files to lm_outfolder:\n%s\n', cmd_mv); fprintf('copying lm files to lm_outfolder');
-          system(cmd_mv); pause(0.1);
-          fprintf(fid_log, 'copying lm files to lm_outfolder:\n%s\n', cmd_mv2); fprintf('copying lm files to lm_outfolder:\n%s\n', cmd_mv2);
-          system(cmd_mv2); pause(0.1);
-          fprintf(fid_log, 'copying lm files to lm_outfolder:\n%s\n', cmd_mv3); fprintf('copying lm files to lm_outfolder:\n%s\n', cmd_mv3);
-          system(cmd_mv3); pause(0.1);
-          fprintf(fid_log, 'copying lm files to lm_outfolder:\n%s\n', cmd_mv4); fprintf('copying lm files to lm_outfolder:\n%s\n', cmd_mv4);
-          system(cmd_mv4); pause(0.1); 
-          fprintf(fid_log, 'copying lm files to lm_outfolder:\n%s\n', cmd_mv5); fprintf('copying lm files to lm_outfolder:\n%s\n', cmd_mv5);
-          system(cmd_mv5); pause(0.1);
-          fprintf(fid_log, 'copying lm files to lm_outfolder:\n%s\n', cmd_mv6); fprintf('copying lm files to lm_outfolder:\n%s\n', cmd_mv6);
-          system(cmd_mv6); pause(0.1);
-          fprintf(fid_log, 'copying lm files to lm_outfolder:\n%s\n', cmd_mv7); fprintf('copying lm files to lm_outfolder:\n%s\n', cmd_mv7);
-          system(cmd_mv7); pause(0.1); 
+          if wipe_directories
+            cmd_rm = ['rm ', handles.lm_outfolder, 'block_sino_f', num2str(handles.reconFrames(kk)),'_prompts.* ',...
+            handles.lm_outfolder, 'block_sino_f', num2str(handles.reconFrames(kk)), '_randoms.* ',...
+            handles.lm_outfolder, 'deadtime_sino.* ',...
+            handles.lm_outfolder, 'lm_reorder_f', num2str(handles.reconFrames(kk)), '_prompts.* ',...
+            handles.lm_outfolder, 'prompts* '...
+            handles.lm_outfolder, 'randoms* '...
+            handles.lm_outfolder, 'singles* '];
+            fprintf(fid_log, '%s\n', cmd_rm); fprintf(cmd_rm);
+            system(cmd_rm);
+            pause(0.1);
+          end
+          %copy lm and correction files from temp dir to lm_outfolder
+        %  cmd_mv = ['mv ', handles.server_recon_data_dir, '/', handles.server_temp_dir{kk}, '/*prompts.add_fac ', handles.lm_outfolder ];
+        %  cmd_mv2 = ['mv ', handles.server_recon_data_dir, '/', handles.server_temp_dir{kk}, '/*prompts.add_fac.original ', handles.lm_outfolder ];
+        %%  cmd_mv3 = ['mv ', handles.server_recon_data_dir, '/', handles.server_temp_dir{kk}, '/*prompts.mul_fac ', handles.lm_outfolder ];
+        %  cmd_mv4 = ['mv ', handles.server_recon_data_dir, '/', handles.server_temp_dir{kk}, '/*prompts.lm ', handles.lm_outfolder ];
+        %  cmd_mv5 = ['mv ', handles.server_recon_data_dir, '/', handles.server_temp_dir{kk}, '/*prompts.scat_fac ', handles.lm_outfolder ];
+        %  cmd_mv6 = ['mv ', handles.server_recon_data_dir, '/', handles.server_temp_dir{kk}, '/*prompts.attn_fac ', handles.lm_outfolder ];
+        %  cmd_mv7 = ['mv ', handles.server_recon_data_dir, '/', handles.server_temp_dir{kk}, '/*prompts.mul_fac.original ', handles.lm_outfolder ];
+        %  fprintf(fid_log, 'copying lm files to lm_outfolder:\n%s\n', cmd_mv); fprintf('copying lm files to lm_outfolder');
+        %  system(cmd_mv); pause(0.1);
+        %  fprintf(fid_log, 'copying lm files to lm_outfolder:\n%s\n', cmd_mv2); fprintf('copying lm files to lm_outfolder:\n%s\n', cmd_mv2);
+        %  system(cmd_mv2); pause(0.1);
+        %%  fprintf(fid_log, 'copying lm files to lm_outfolder:\n%s\n', cmd_mv3); fprintf('copying lm files to lm_outfolder:\n%s\n', cmd_mv3);
+        %%  system(cmd_mv3); pause(0.1);
+        %  fprintf(fid_log, 'copying lm files to lm_outfolder:\n%s\n', cmd_mv4); fprintf('copying lm files to lm_outfolder:\n%s\n', cmd_mv4);
+        %  system(cmd_mv4); pause(0.1); 
+        %  if use_scat_corr
+        %    fprintf(fid_log, 'copying lm files to lm_outfolder:\n%s\n', cmd_mv5); fprintf('copying lm files to lm_outfolder:\n%s\n', cmd_mv5);
+        %    system(cmd_mv5); pause(0.1);
+        %  end
+        %  fprintf(fid_log, 'copying lm files to lm_outfolder:\n%s\n', cmd_mv6); fprintf('copying lm files to lm_outfolder:\n%s\n', cmd_mv6);
+        %  system(cmd_mv6); pause(0.1);
+        %  fprintf(fid_log, 'copying lm files to lm_outfolder:\n%s\n', cmd_mv7); fprintf('copying lm files to lm_outfolder:\n%s\n', cmd_mv7);
+        %  system(cmd_mv7); pause(0.1); 
 
           % wipe the temporary dir on the server
-          cmd_clean = ['cd ', handles.server_recon_data_dir,' && rm -r ', handles.server_temp_dir{kk},'/ ',]; 
-          system(cmd_clean); 
-          pause(0.01);
+          if wipe_directories
+            cmd_clean = ['cd ', handles.server_recon_data_dir,' && rm -r ', handles.server_temp_dir{kk},'/ ',]; 
+            system(cmd_clean); 
+            pause(0.01);
+          end
         end
         recon_frame_done(kk) = 1; 
         recon_frame_running(kk) = 0; 
@@ -442,7 +460,7 @@ fprintf(fid1,str);
 str = ''; 
 
 
-str = 'TOF_information = 460, 39.0625\n\n'; 
+str = 'TOF_information = 505, 39.0625\n\n'; 
 fprintf(fid1,str); 
 str = ''; 
 

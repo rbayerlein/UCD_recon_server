@@ -2,20 +2,6 @@ function attn_fp(frame_number_from_recon_scheduler_server)
 % function to perform forward projection (fp) of attenuation (attn) 
 % coefficients for correct normalization of randoms and scatter corrections
 % rbayerlein, 10/29/2021
-
-%% HARD CODED PARAMETERS 
-% this is for parameters like frame number that might be relevant to be
-% used later on. So the infrastructure is created here.
-frame_num = frame_number_from_recon_scheduler_server;  % can get this from handler later
-
-num_threads = 48; % for forward projector
-
-mumap_fname = 'CTAC_201_mumap_kVp-140_size-239x239x679_vox-2.85x2.85x2.85.img';
-
-lm_fp_exp = '/home/rbayerlein/code/explorer-master/read_lm/lmrecon_exploer/app/lm_fp_exp';
-
-AddAttn2add_fac = '/home/rbayerlein/code/explorer-master/read_lm/AddAttn2add_fac/bin/AddAttn2add_fac';
-
 %% read in handler and parameters
 handles_name = '/home/rbayerlein/code/explorer-master/handles_scheduler.mat'; 
 pause(0.1); 
@@ -26,7 +12,44 @@ pause(0.1);
 
 handles.server_temp_dir
 
+frame_num = frame_number_from_recon_scheduler_server;  % can get this from handler later
 outfolder_server_temp = handles.server_temp_dir{frame_num+1};
+
+img_size=handles.pet_img_size;
+voxel_size=handles.pet_voxel_size;
+
+%% HARD CODED PARAMETERS 
+% this is for parameters like frame number that might be relevant to be
+% used later on. So the infrastructure is created here.
+
+num_threads = 48; % for forward projector
+
+% change from here ===============
+
+%mumap_fname = 'CTAC_201_mumap_kVp-140_size-239x239x679_vox-2.85x2.85x2.85.img'; 
+slash = strfind(handles.sensitivity_path_server_backup, '/');
+ext=strfind(handles.sensitivity_path_server_backup, '.sen_img');
+mumap_fname_raw = handles.sensitivity_path_server_backup(slash(length(slash))+1:ext(length(ext))-1);
+
+mumap_fname = [mumap_fname_raw, '_mumap_kVp-140_size-', num2str(img_size(1)), 'x', num2str(img_size(2)), 'x', num2str(img_size(3)), ...
+    '_vox-',num2str(voxel_size(1)), 'x', num2str(voxel_size(2)),'x', num2str(voxel_size(3)), '.img'];
+
+% test if exists
+% if not, run downsampling from the version with the other dimensions
+mumap_full_path = handles.sensitivity_path_server_backup(1:strfind(handles.sensitivity_path_server_backup, mumap_fname_raw)-1);
+mumap_full_path_fname = [mumap_full_path, mumap_fname]
+
+if ~exist(mumap_full_path_fname, 'file')
+    disp('mumap does not exist with given dimensions. Will try downsampling ...');
+    existing_mumap_fname = [mumap_full_path, 'CTAC_120_MIN_201_mumap_kVp-140_size-256x256x828_vox-2.7344x2.7344x2.344.img']
+    run_Downsampling_imge(existing_mumap_fname, img_size, voxel_size);
+end
+% =========
+lm_fp_exp = '/home/rbayerlein/code/explorer-master/read_lm/lmrecon_exploer/app/lm_fp_exp';
+
+AddAttn2add_fac = '/home/rbayerlein/code/explorer-master/read_lm/AddAttn2add_fac/bin/AddAttn2add_fac';
+
+
 
 %% check if lm files exist already
 lm_not_done = true;
@@ -73,7 +96,8 @@ end
 cfg_fname = [cfg_folder, '/copy_cfg_lmfp.sh'];
 
 % create script that writes the config files
-CreateConfigFiles(cfg_fname, handles, outfolder_server_temp, frame_num, mumap_fname);
+disp('create script that writes the config files');
+CreateConfigFiles(cfg_fname, handles, outfolder_server_temp, frame_num, mumap_fname, voxel_size);
 pause(0.1);
 % run that script
 cmd = ['bash ', cfg_fname];
@@ -113,7 +137,7 @@ while not_done
         disp('all attn files created');
     else
         fprintf('\nchecking again ...\n');
-        pause(2.0);
+        pause(5.0);
     end
 end
 
@@ -125,7 +149,7 @@ plane_eff = [handles.dcm_dir_init_ucd_server, '/plane_eff_679x679'];
 
 for i = 1:8
     cmd = [AddAttn2add_fac, ' ', handles.server_recon_data_dir,'/',outfolder_server_temp,'/lm_reorder_f', num2str(frame_num), '_prompts.', num2str(i), '.lm ',...
-        handles.server_recon_data_dir,'/',outfolder_server_temp, '/lm_reorder_f', num2str(frame_num), '_prompts.', num2str(i), '.attn_fac ', crys_eff, ' ', plane_eff, '&'];
+        handles.server_recon_data_dir,'/',outfolder_server_temp, '/lm_reorder_f', num2str(frame_num), '_prompts.', num2str(i), '.attn_fac ', crys_eff, ' ', plane_eff, ' &'];
     fprintf('now running command %s\n', cmd); 
     system(cmd);
     pause(0.2);
@@ -182,7 +206,7 @@ end
 
 
 %% function that creates the bash cript which in turn creates the 8 different config files for the attenuation forward projection
-function CreateConfigFiles(cfg_fname, handles, outfolder_server_temp, frame_num, mumap_fname)
+function CreateConfigFiles(cfg_fname, handles, outfolder_server_temp, frame_num, mumap_fname, voxel_size)
 
 fid_cfg = fopen(cfg_fname, 'w');
 fprintf(fid_cfg, '#!/bin/bash \n');
@@ -195,7 +219,7 @@ fprintf(fid_cfg, 'if [[ ! -d $lm_folder ]]; then \n	mkdir $lm_folder\n	chmod -R 
 
 fprintf(fid_cfg, 'for (( m=1; m<=8; m++ )) do \n{\n	echo "');
 fprintf(fid_cfg, 'detector_ring_diameter = 786.0 \n');
-fprintf(fid_cfg, 'crystal_size = 2.85, 2.85, 2.85, 18.1\n');
+fprintf(fid_cfg, 'crystal_size = %d, %d, %d, 18.1\n', voxel_size(1), voxel_size(2), voxel_size(3));
 fprintf(fid_cfg, 'crystal_gap_size = 0.0, 0.0, 0.0 \n');
 fprintf(fid_cfg, 'crystal_array_size = 35, 679  \n');
 fprintf(fid_cfg, 'number_of_detector_modules = 24, 1 \n');

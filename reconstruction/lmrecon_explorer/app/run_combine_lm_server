@@ -1,3 +1,3 @@
 #!/bin/bash
-dataFolder=/mnt/ssd/rbayerlein/explorer/recon_data_temp/cont_bed_motion_7s_4it
-./combine_listmode ${dataFolder}/lm_reorder_f0.lm ${dataFolder}/lm_reorder_f0_prompts.1.lm ${dataFolder}/lm_reorder_f0_prompts.2.lm ${dataFolder}/lm_reorder_f0_prompts.3.lm ${dataFolder}/lm_reorder_f0_prompts.4.lm ${dataFolder}/lm_reorder_f0_prompts.5.lm ${dataFolder}/lm_reorder_f0_prompts.6.lm ${dataFolder}/lm_reorder_f0_prompts.7.lm ${dataFolder}/lm_reorder_f0_prompts.8.lm
+dataFolder=/media/rbayerlein/SSD_09_Reimund/20220218/2MLineSource_TOF_2MLineSource_TOF_171012/PET/RawData/lm_files
+./combine_listmode_local ${dataFolder}/lm_reorder_f0.lm ${dataFolder}/lm_reorder_f0_prompts.1.lm ${dataFolder}/lm_reorder_f0_prompts.2.lm ${dataFolder}/lm_reorder_f0_prompts.3.lm ${dataFolder}/lm_reorder_f0_prompts.4.lm ${dataFolder}/lm_reorder_f0_prompts.5.lm ${dataFolder}/lm_reorder_f0_prompts.6.lm ${dataFolder}/lm_reorder_f0_prompts.7.lm ${dataFolder}/lm_reorder_f0_prompts.8.lm

@@ -64,15 +64,15 @@ int main(int argc, char **argv) {
 	ss_add_fac << fname_raw << ".add_fac";
 	ss_add_fac_out << fname_raw << ".add_fac_out";	// for writing output
 	ss_mul_fac << fname_raw << ".mul_fac";
-	ss_mul_fac_out << fname_raw << ".mul_fac_out"; // for writing output
+	//ss_mul_fac_out << fname_raw << ".mul_fac_out"; // for writing output
 
 	string infile_add_fac = ss_add_fac.str();
 	string infile_mul_fac = ss_mul_fac.str();
 	string outfile_add_fac = ss_add_fac_out.str();
-	string outfile_mul_fac = ss_mul_fac_out.str();
+	//string outfile_mul_fac = ss_mul_fac_out.str();
 
 	cout << "-> input and output add_fac and mul_fac files:\n\t" <<
-	infile_lm << "\n\t" << infile_add_fac << "\n\t" << infile_mul_fac << "\n\t" << outfile_add_fac << "\n\t" << outfile_mul_fac << endl;
+	infile_lm << "\n\t" << infile_add_fac << "\n\t" << infile_mul_fac << "\n\t" << outfile_add_fac << endl;
 
 	// get attenuation file
 	string infile_attn = argv[2];
@@ -132,13 +132,13 @@ int main(int argc, char **argv) {
 		cerr << outfile_add_fac << " cannot be opened." << endl;
 		exit(1);
 	}	
-
+/*
 	FILE *pOutputFile_mul_fac =  fopen(outfile_mul_fac.c_str(), "wb");
 	if (pOutputFile_mul_fac == NULL) { // check return value of file pointer
 		cerr << outfile_mul_fac << " cannot be opened." << endl;
 		exit(1);
 	}	
-
+*/
 	FILE *pInputFile_attn = fopen(infile_attn.c_str(), "rb");
 	if (pInputFile_attn == NULL ) {
 		cerr << infile_attn << " cannot be opened." << endl;
@@ -206,7 +206,7 @@ int main(int argc, char **argv) {
 	float *add_fac_out = new float[BUFFER_SIZE];
 	float *add_fac = new float[BUFFER_SIZE];
 	float *mul_fac = new float[BUFFER_SIZE];
-	float *mul_fac_out = new float[BUFFER_SIZE];
+	//float *mul_fac_out = new float[BUFFER_SIZE];
 	float *attn = new float[BUFFER_SIZE];
 
 	int num_buffers_read = 1;
@@ -257,11 +257,11 @@ int main(int argc, char **argv) {
 			buffer_indx++;
 
 			// fill new mul fac file with ones as they are now incorporated into add_fac files.
-			mul_fac_out[i] = 1;
+			//mul_fac_out[i] = 1;
 
 			if(buffer_indx == BUFFER_SIZE){
 				fwrite(add_fac_out, sizeof(float), BUFFER_SIZE, pOutputFile_add_fac);
-				fwrite(mul_fac_out, sizeof(float), BUFFER_SIZE, pOutputFile_mul_fac);
+			//	fwrite(mul_fac_out, sizeof(float), BUFFER_SIZE, pOutputFile_mul_fac);
 				buffer_indx = 0; // reset index
 			//if (num_buffers_read % 10 == 0)	cout << "buffer number " << num_buffers_read << "\t" << add_fac_out[i] << "\t" << attn[i] << endl;
 			}
@@ -270,7 +270,7 @@ int main(int argc, char **argv) {
 		num_buffers_read++;
 	}
 	fwrite(add_fac_out, sizeof(float), buffer_indx, pOutputFile_add_fac);
-	fwrite(mul_fac_out, sizeof(float), buffer_indx, pOutputFile_mul_fac);
+//	fwrite(mul_fac_out, sizeof(float), buffer_indx, pOutputFile_mul_fac);
 
 	// re-name original ADD FAC file and save new file under original name
 	cout << "-> deleting existing *.add_fac and renaming new file to *.add_fac" << endl;
@@ -300,7 +300,7 @@ int main(int argc, char **argv) {
 	}else{
 		cout << "----> sucessfully deleted previous file\n" << infile_mul_fac << endl;
 	}
-
+/*
 	string outfile_mul_fac_new = outfile_mul_fac;
 	outfile_mul_fac_new.erase(outfile_mul_fac.length() -4, 4);
 	if (rename(outfile_mul_fac.c_str() , outfile_mul_fac_new.c_str()) != 0){
@@ -309,7 +309,7 @@ int main(int argc, char **argv) {
 	}else{
 		cout << "----> sucessfully renamed file\n" << outfile_mul_fac << "\nto\n" << outfile_mul_fac_new << endl;
 	}	 
-
+*/
 
 	cout << "-> closing all files" << endl;
 	delete[] pids_in;
