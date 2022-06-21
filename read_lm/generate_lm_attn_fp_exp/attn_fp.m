@@ -41,7 +41,7 @@ mumap_full_path_fname = [mumap_full_path, mumap_fname]
 
 if ~exist(mumap_full_path_fname, 'file')
     disp('mumap does not exist with given dimensions. Will try downsampling ...');
-    existing_mumap_fname = [mumap_full_path, 'CTAC_120_MIN_201_mumap_kVp-140_size-256x256x828_vox-2.7344x2.7344x2.344.img']
+    existing_mumap_fname = [mumap_full_path, mumap_fname_raw, '_mumap_kVp-140_size-256x256x828_vox-2.7344x2.7344x2.344.img']
     run_Downsampling_imge(existing_mumap_fname, img_size, voxel_size);
 end
 % =========

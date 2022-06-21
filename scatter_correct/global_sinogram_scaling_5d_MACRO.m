@@ -5,7 +5,7 @@
 
 %% user-configurable paramters
 iteration_num=3;
-fname_pd = '/home/rbayerlein/ssd/HumSubj_NA_SC_360s_4it/block_sino_f0_pd.sino5d';
+fname_pd = '/home/rbayerlein/ssd/HumSubj_NA_SC_360s_2it_global_scaling/block_sino_f0_pd.sino5d';
 simulation_basename = '/home/rbayerlein/data/explorer/20210714/NERVO_ATILLIO_7696939_144717_Raw/UCD/Scatter_Data_bigger_data_set_20220404/f3.3';
 
 TOFbyTOF_scaling=false; 

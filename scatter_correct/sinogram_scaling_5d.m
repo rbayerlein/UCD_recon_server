@@ -29,8 +29,8 @@ n_ax_blk_per_unit = 14;
 
 % for plotting
 ssrb_i = 81; % 112;
-axAi = 35; %70; %30; % 39
-axBi = 35; %70; %30; % 39
+axAi = 55; %70; %30; % 39
+axBi = 55; %70; %30; % 39
 axAj = 59; %84;
 axBj = 7; %29;
 tof = 14;

@@ -10,7 +10,7 @@ pause(0.1);
 
 lm_counter = 1; 
 
-wipe_directories = true; % delete temp folder and clean up lm directory
+wipe_directories = false; % delete temp folder and clean up lm directory
 
 subsample_on = handles.subsample; 
 

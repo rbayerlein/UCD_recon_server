@@ -1,12 +1,12 @@
 #!/bin/bash
 
-path_to_output_folder=/media/rbayerlein/SSD_09_Reimund/20220218/2MLineSource_TOF_2MLineSource_TOF_171012/PET/RawData/lm_files/
+path_to_output_folder=/mnt/ssd/rbayerlein/explorer/recon_data_temp/phantom_6beds_78rings_from188_34rings_overlap_220_4it_scatter_corr_20210916/
 
-path_to_lm_data=/media/rbayerlein/SSD_09_Reimund/20220218/2MLineSource_TOF_2MLineSource_TOF_171012/PET/RawData/1.2.156.112605.159303471608576.220219011013.9.6408.94037/1.2.156.112605.159303471608576.220219011352.9.13376.15564
+path_to_lm_data=/mnt/data/rbayerlein/explorer/20210827/Multi-Bed_Phantom_Multi-Bed_Phantom_154523/PET/RawData/1.2.156.112605.159303471608576.210827224523.9.6628.91186/1.2.156.112605.159303471608576.210827225240.9.12756.14170
 
 dynamic_flag=0
 
-framing_info=1,1799
+framing_info=1,1320
 
 write_lm_flag=1
 

@@ -2,7 +2,7 @@
 function [fname_s_scaled] = global_sinogram_scaling_5d(iteration_num, fname_pd, simulation_basename)
 %% user-configurable paramters
 
-TOFbyTOF_scaling=false; 
+TOFbyTOF_scaling=true; 
 % determines whether to use global scaling; true: no global scaling but tof bin by tof bin. 
 % false: global scaling, i.e. use all sinograms and all tof bins combined and get ONE scaling factor
 
@@ -59,7 +59,7 @@ x0 = 1; % scaling - initial guess
 % parpool(maxNumCompThreads-2); % leave 2 threads out to minimize SSH lag
 
 if TOFbyTOF_scaling
-    x_optimal = zeros(num_tof_bins, 1);%#ok<UNRCH>
+    x_optimal = zeros(num_tof_bins, 1);
     for tofbin = 1 : num_tof_bins
         fprintf('tof bin %d\n', tofbin);
         data_pd_slice = data_pd(:,:,:,:,tofbin);
@@ -75,7 +75,7 @@ if TOFbyTOF_scaling
 else
 %     func = @(x) GetImsse(data_pd, data_s_5d + data_t_5d, x); 
 %     x_optimal = fminsearch(func, x0);
-    x_optimal=sum(sum(sum(sum(sum(data_pd))))) / sum(sum(sum(sum(sum(data_s_5d+data_t_5d)))));
+    x_optimal=sum(sum(sum(sum(sum(data_pd))))) / sum(sum(sum(sum(sum(data_s_5d+data_t_5d))))); %#ok<UNRCH>
     if x_optimal <0     % apply non-zero negativity constraint to prevent errors
         x_optimal = 0;
     end

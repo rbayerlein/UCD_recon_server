@@ -15,12 +15,15 @@ fname_out=[outfolder, '/block_sino_f', num2str(frame_num),'_'];
 f_out_p=[fname_out,'prompts.sino5d'];
 f_out_r=[fname_out, 'randoms.sino5d'];
 
+%block based plane efficiency
+blk_based_plane_eff_file = calc_blk_based_plane_eff(plane_eff_file)
+
 %% create sinos 5d
 not_done = true;
 files_exist = zeros(8,1);
 
 for i = 1 : 8
-    cmd_run = [lm2blocksino5d_P_and_D, ' ', lm_file, num2str(i), '.lm ', crys_eff_file, ' ', plane_eff_file, ' ', dim, ' ', outfolder, ' &']; % run in bkgr
+    cmd_run = [lm2blocksino5d_P_and_D, ' ', lm_file, num2str(i), '.lm ', crys_eff_file, ' ', plane_eff_file, ' ', blk_based_plane_eff_file, ' ', dim, ' ', outfolder, ' &']; % run in bkgr
     file2becreated_r = [fname_out, 'randoms.', num2str(i), '.sino5d'];
     file2becreated_p = [fname_out, 'prompts.', num2str(i), '.sino5d'];
     if exist(file2becreated_r, 'file') && exist(file2becreated_p, 'file')
@@ -103,7 +106,7 @@ end
 %prompts
 fprintf('adding prompts...');
 if exist(f_out_p, 'file')
-    fprintf('file exists:\n%s -> omitting\n', f_out_p);
+%     fprintf('file exists:\n%s -> omitting\n', f_out_p);
 else
     for i = 1 : 8
         tic

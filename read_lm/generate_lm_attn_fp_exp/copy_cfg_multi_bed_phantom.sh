@@ -1,8 +1,8 @@
 #!/bin/bash
 study_dir=/home/rbayerlein/data/explorer/20210827/Multi-Bed_Phantom_Multi-Bed_Phantom_154523
-output_data_temp=/home/rbayerlein/ssd/YXZEFSTBRV
-cfg_folder=${output_data_temp}/cfg_attn_fp_exp
-lm_folder=${output_data_temp}/lm_attn_fp_exp
+server_temp_dir=/home/rbayerlein/ssd/YXZEFSTBRV
+cfg_folder=${server_temp_dir}/cfg_attn_fp_exp
+lm_folder=${server_temp_dir}/lm_attn_fp_exp
 
 if [[ ! -d $cfg_folder ]]; then
 	mkdir $cfg_folder
@@ -38,13 +38,13 @@ initial_guess = ${study_dir}/UCD/Image/CTAC_201_mumap_kVp-140_size-239x239x239_v
 warmup_setting = 1, 1
 iteration_setting = 1, 1, 1    #  1, 10, 500
 
-regularizer_strength = 0
+regularizer_strength = 0 # mandatory line, otherwise core dumps
 regularizer_model_type = 0    #0: pairwise MRF, 1: patch
 regularizer_potential_function_type = 2   #0: Quadratic, 1: Hyperbola, 2: Fair, 3: Huber, 4: hw
 regularizer_neighborhood_properties = 0, 1    #size, isotropic  #0: 3x3x3, 1:isotropic  # 1st(0) or 2nd(1), aniso(0) or iso(1)
 regularizer_buildin_parameter_list = 1e-10
 
-input_raw_data_file = ${output_data_temp}/lm_reorder_f0_prompts.$[$m].lm
+input_raw_data_file = ${server_temp_dir}/lm_reorder_f0_prompts.$[$m].lm
 
 input_raw_data_format_type = 0
 

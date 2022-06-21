@@ -4,6 +4,8 @@ Reconstruction_Parameters_*
 *.zip
 *.o
 *.asv
+*.sino4d
+*michel_lut_672x672
 
 read_lm/process_lm_sino_explorer_singlefile_release
 read_lm/lut/block_sino_f0_scatters*
